@@ -13,6 +13,12 @@ Household app that pulls together what's on the streaming services they subscrib
 - Daily check: `src/lib/alerts.ts` `runChecks()`, called by `/api/cron/check` with `CRON_SECRET`.
 - Region is US (`WATCH_REGION`). Default services: Netflix, HBO Max, Prime Video, Apple TV+.
 
+## Hosting (Railway project "watchlist", set up Oct 2026)
+- Live at https://watchlist-production-9926.up.railway.app. Repo: GitHub `tdinka/watchlist` (private). Pushing to `main` deploys automatically.
+- Services: `watchlist` (the app), `Postgres` (no public URL; tables are created by `npm start`), `daily-check` (curl image; cron `0 14 * * *` = 7am Pacific; POSTs to `/api/cron/check` with `CRON_SECRET`, which it references from the app's variables).
+- `railway environment edit --service-config` answered "No changes to apply" for deploy settings (CLI 5.63 and 5.71). The cron schedule and start command were set through Railway's GraphQL API (`serviceInstanceUpdate`) with the CLI's signed-in token; a Cloudflare 1010 error means the request needs a `user-agent` header.
+- Not set yet: `RESEND_API_KEY` / `EMAIL_FROM` (email alerts). Local dev has no database yet; the Railway one isn't reachable from outside.
+
 ## Rules
 - Service matching goes through `serviceKey()` in `src/lib/services.ts` (TMDB lists "Netflix Standard with Ads", "HBO Max Amazon Channel" etc. separately). Change name rules there only.
 - Colours in `tailwind.config.ts`: gold `marquee` only for actions, always behind dark text; green `live` only means "on your service"; coral `flare` only marks something new.
