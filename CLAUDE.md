@@ -16,6 +16,6 @@ Household app that pulls together what's on the streaming services they subscrib
 ## Rules
 - Service matching goes through `serviceKey()` in `src/lib/services.ts` (TMDB lists "Netflix Standard with Ads", "HBO Max Amazon Channel" etc. separately). Change name rules there only.
 - Colours in `tailwind.config.ts`: gold `marquee` only for actions, always behind dark text; green `live` only means "on your service"; coral `flare` only marks something new.
-- Use `prisma db push`, never `prisma migrate dev`. Back up `.env` before reorganizing files.
+- Use `prisma db push`, never `prisma migrate dev`. On Railway, `npm start` runs `prisma db push` before starting, so schema changes apply on deploy (it refuses changes that would lose data, and the deploy fails instead). The Railway Postgres has no public URL. Back up `.env` before reorganizing files.
 - Next.js 14.2: don't combine `useSearchParams` + `Suspense` + `force-dynamic`; pages read `searchParams` props instead.
 - New public routes must be excluded in `src/middleware.ts`.
