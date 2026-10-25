@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-night font-body text-paper antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-marquee text-night hover:bg-marquee-dark;
+  }
+  .btn-quiet {
+    @apply btn border border-night-line bg-night-surface text-paper hover:bg-night-raised;
+  }
+  .input {
+    @apply w-full rounded-lg border border-night-line bg-night-surface px-3 py-2 text-paper placeholder:text-paper-faint focus:border-marquee focus:outline-none;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-night-line px-3 py-1 text-sm text-paper-muted hover:border-paper-faint hover:text-paper;
+  }
+  .chip-on {
+    @apply border-marquee bg-marquee text-night hover:border-marquee hover:text-night;
+  }
+  .card {
+    @apply rounded-xl border border-night-line bg-night-surface;
+  }
+  .scroll-row {
+    @apply -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6;
+    scrollbar-width: none;
+  }
+}

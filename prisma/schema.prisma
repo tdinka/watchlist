@@ -1,0 +1,107 @@
+// Watchlist — data model
+// Titles themselves (posters, seasons, where to watch) come live from TMDB.
+// The database only keeps what is ours: who is in the household, what they
+// subscribe to, their favorites, and the alerts we've sent them.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Household {
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique
+  // TMDB watch-provider ids of the services this household pays for.
+  // Defaults: Netflix (8), HBO Max (1899), Amazon Prime Video (9), Apple TV+ (350).
+  services   Int[]    @default([8, 1899, 9, 350])
+  createdAt  DateTime @default(now())
+
+  users User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  emailAlerts  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+
+  favorites Favorite[]
+  alerts    Alert[]
+  dismissed Dismissed[]
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  tmdbId     Int
+  mediaType  String // "tv" | "movie"
+  title      String
+  posterPath String?
+  // The household's services this was streaming on at the last check, e.g.
+  // "Netflix, HBO Max". "" = on none of them. Null = not checked yet.
+  availableOn String?
+  createdAt  DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@unique([userId, mediaType, tmdbId])
+  @@index([mediaType, tmdbId])
+}
+
+// The latest episode we've seen for each favorited show, so the daily check
+// can tell when a new episode or season has come out.
+model ShowState {
+  tmdbId      Int      @id
+  name        String
+  lastSeason  Int?
+  lastEpisode Int?
+  lastAirDate String?
+  nextSeason  Int?
+  nextEpisode Int?
+  nextAirDate String?
+  status      String?
+  checkedAt   DateTime @default(now())
+}
+
+model Alert {
+  id         String    @id @default(cuid())
+  // Stops the same news being sent twice, e.g. "tv:1399:s8e1".
+  key        String
+  kind       String // "new_season" | "new_episode" | "now_streaming"
+  tmdbId     Int
+  mediaType  String
+  title      String
+  message    String
+  posterPath String?
+  createdAt  DateTime  @default(now())
+  readAt     DateTime?
+  emailedAt  DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@unique([userId, key])
+  @@index([userId, readAt])
+}
+
+// Titles someone marked "Not for me" so recommendations stop showing them.
+model Dismissed {
+  tmdbId    Int
+  mediaType String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@id([userId, mediaType, tmdbId])
+}
