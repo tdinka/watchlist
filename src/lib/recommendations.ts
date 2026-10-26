@@ -8,7 +8,19 @@ export type Recommendation = TitleSummary & { because: string | null; services: 
 // each title on the Loved list (not Want to watch: those aren't known likes).
 // A title suggested by several loved titles ranks higher. Only titles
 // streaming on the household's services are kept.
-export async function recommendFor(userId: string, mine: Provider[], limit = 24): Promise<Recommendation[]> {
+//
+// `round` is how many times someone has asked for different ones: each round
+// takes the next stretch of the ranked list, so a new round never repeats the
+// last one. Once the list runs out it starts over (`startedOver`).
+export type RecommendationRound = { titles: Recommendation[]; round: number; startedOver: boolean };
+
+const POPULAR_PAGES = 10;
+
+export async function recommendFor(
+  userId: string,
+  mine: Provider[],
+  { limit = 24, round = 0 }: { limit?: number; round?: number } = {},
+): Promise<RecommendationRound> {
   const [favorites, saved, dismissed] = await Promise.all([
     db.favorite.findMany({ where: { userId, list: "loved" }, orderBy: { createdAt: "desc" }, take: 20 }),
     db.favorite.findMany({ where: { userId }, select: { mediaType: true, tmdbId: true } }),
@@ -20,7 +32,10 @@ export async function recommendFor(userId: string, mine: Provider[], limit = 24)
     ...dismissed.map((d) => `${d.mediaType}:${d.tmdbId}`),
   ]);
 
-  if (favorites.length === 0) return popularFallback(mine, skip, limit);
+  if (favorites.length === 0) {
+    const r = round % POPULAR_PAGES;
+    return { titles: await popularFallback(mine, skip, limit, r), round: r, startedOver: round > 0 && r === 0 };
+  }
 
   const lists = await mapLimit(favorites, 6, async (fav) => {
     try {
@@ -45,9 +60,10 @@ export async function recommendFor(userId: string, mine: Provider[], limit = 24)
     });
   }
 
-  const ranked = Array.from(scored.values())
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit * 3);
+  const all = Array.from(scored.values()).sort((a, b) => b.score - a.score);
+  const stretch = limit * 3; // about a third are usually on the household's services
+  const r = round % Math.max(1, Math.ceil(all.length / stretch));
+  const ranked = all.slice(r * stretch, (r + 1) * stretch);
   const services = await servicesForTitles(
     ranked.map((r) => r.title),
     mine,
@@ -56,17 +72,18 @@ export async function recommendFor(userId: string, mine: Provider[], limit = 24)
     .map((r) => ({ ...r.title, because: r.because, services: services.get(`${r.title.mediaType}:${r.title.id}`) ?? [] }))
     .filter((r) => r.services.length > 0);
 
-  if (onMine.length >= 6) return onMine.slice(0, limit);
-  const extra = await popularFallback(mine, new Set([...skip, ...onMine.map((r) => `${r.mediaType}:${r.id}`)]), limit);
-  return [...onMine, ...extra].slice(0, limit);
+  const startedOver = round > 0 && r === 0;
+  if (onMine.length >= 6) return { titles: onMine.slice(0, limit), round: r, startedOver };
+  const extra = await popularFallback(mine, new Set([...skip, ...onMine.map((t) => `${t.mediaType}:${t.id}`)]), limit, r % POPULAR_PAGES);
+  return { titles: [...onMine, ...extra].slice(0, limit), round: r, startedOver };
 }
 
-async function popularFallback(mine: Provider[], skip: Set<string>, limit: number): Promise<Recommendation[]> {
+async function popularFallback(mine: Provider[], skip: Set<string>, limit: number, round = 0): Promise<Recommendation[]> {
   if (mine.length === 0) return [];
   const ids = mine.map((p) => p.id);
   const [tv, movies] = await Promise.all([
-    discover({ mediaType: "tv", providerIds: ids, sort: "top" }),
-    discover({ mediaType: "movie", providerIds: ids, sort: "top" }),
+    discover({ mediaType: "tv", providerIds: ids, sort: "top", page: round + 1 }),
+    discover({ mediaType: "movie", providerIds: ids, sort: "top", page: round + 1 }),
   ]);
   const mixed = tv.results.flatMap((t, i) => [t, movies.results[i]]).filter(Boolean) as TitleSummary[];
   const picks = mixed.filter((t) => !skip.has(`${t.mediaType}:${t.id}`)).slice(0, limit);

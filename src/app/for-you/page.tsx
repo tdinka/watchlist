@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { favoriteKeys } from "@/lib/favorites";
@@ -10,15 +11,16 @@ import { ActionButton } from "@/components/ActionButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function ForYouPage() {
+export default async function ForYouPage({ searchParams }: { searchParams: { round?: string } }) {
   const user = await currentUser();
   const mine = await getHouseholdServices(user.householdId);
   if (mine.length === 0) return <NoServices />;
   if (!hasTmdbKey()) return <TmdbProblem />;
 
+  const asked = Math.max(0, Math.min(1000, parseInt(searchParams.round ?? "0", 10) || 0));
   let recs;
   try {
-    recs = await recommendFor(user.id, mine);
+    recs = await recommendFor(user.id, mine, { round: asked });
   } catch {
     return <TmdbProblem />;
   }
@@ -26,15 +28,25 @@ export default async function ForYouPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">For you</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold">For you</h1>
+        <Link href={`/for-you?round=${recs.round + 1}`} className="btn-quiet">
+          Show me different ones
+        </Link>
+      </div>
       <p className="mt-1 max-w-2xl text-paper-muted">
         {favCount === 0
           ? "Highly rated on your services. Tap the heart on a few things you've loved and these will get personal."
           : "Picked from what you've loved, and all streaming on your services."}
       </p>
+      {recs.startedOver && (
+        <p className="mt-3 max-w-2xl text-sm text-paper-muted">
+          You&apos;ve seen every suggestion there is right now, so this is back at the start. Tap the heart on more titles you&apos;ve loved to get new ones.
+        </p>
+      )}
       <div className="mt-6">
         <TitleGrid>
-          {recs.map((t) => (
+          {recs.titles.map((t) => (
             <TitleCard
               key={`${t.mediaType}:${t.id}`}
               title={t}
