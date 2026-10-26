@@ -43,8 +43,8 @@ export default function RegisterPage() {
             email={email}
             resend={() => requestCode(request)}
             onBack={() => setRequest(null)}
-            // New households start in Settings to check their services.
-            redirectTo={mode === "create" ? "/settings?welcome=1" : "/"}
+            // New households check their services first; everyone then picks favorites.
+            redirectTo={mode === "create" ? "/settings?welcome=1" : "/welcome"}
           />
         </div>
       </div>

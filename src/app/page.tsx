@@ -119,7 +119,11 @@ export default async function HomePage() {
 
       {shows.length === 0 && alerts.length === 0 && (
         <p className="mt-4 max-w-xl text-paper-muted">
-          Tap the heart on any show to follow it. You&apos;ll see new seasons and episodes here, and get an email when they come out.
+          Tap the heart on any show to follow it, or{" "}
+          <Link href="/import" className="text-marquee underline">
+            import what you already watch
+          </Link>
+          . You&apos;ll see new seasons and episodes here, and get an email when they come out.
         </p>
       )}
 

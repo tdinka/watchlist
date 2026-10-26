@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { emailConfigured } from "@/lib/email";
@@ -29,12 +30,31 @@ export default async function SettingsPage({ searchParams }: { searchParams: { w
   return (
     <div className="space-y-5">
       <h1 className="text-3xl font-bold">{searchParams.welcome ? "Welcome! First, your services" : "Settings"}</h1>
+      {searchParams.welcome && (
+        <div className="card flex flex-wrap items-center justify-between gap-3 border-marquee/50 p-4">
+          <p className="text-sm">Tick the services you have below, then tell us what you like.</p>
+          <Link href="/welcome" className="btn-primary">
+            Next: pick shows you love →
+          </Link>
+        </div>
+      )}
 
       <Section
         title="Our streaming services"
         hint="Tick everything your household subscribes to. Browse, search and recommendations use these. Changes save straight away."
       >
         {catalog.length ? <ServicesPicker catalog={catalog} selected={household.services} /> : <TmdbProblem />}
+      </Section>
+
+      <Section title="Add favorites in bulk" hint="Bring in what you already watch so alerts and recommendations work straight away.">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/import" className="btn-quiet">
+            Import Netflix history or a list
+          </Link>
+          <Link href="/welcome" className="btn-quiet">
+            Pick from popular titles
+          </Link>
+        </div>
       </Section>
 
       <Section title="Alerts">

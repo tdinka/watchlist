@@ -11,6 +11,7 @@ Household app that pulls together what's on the streaming services they subscrib
 - TMDB API for all title data (`src/lib/tmdb.ts`); credit TMDB and JustWatch wherever where-to-watch data shows (footer in `layout.tsx`).
 - Resend for email (`src/lib/email.ts`): sign-in codes and alert emails. Required in production, since sign-in codes go by email.
 - Daily check: `src/lib/alerts.ts` `runChecks()`, called by `/api/cron/check` with `CRON_SECRET`.
+- Bulk favorites: `/import` reads a Netflix viewing-history CSV in the browser (`src/lib/netflix.ts` groups episodes into shows) or a typed list, matches names via TMDB search (`src/lib/matching.ts`), and the person ticks what to add. `/welcome` is the pick-what-you-love grid shown after sign-up. All adding goes through `addFavorites()` in `src/lib/favorites.ts`, which also records availability and each show's latest episode (so imports don't trigger alerts for old episodes).
 - Region is US (`WATCH_REGION`). Default services: Netflix, HBO Max, Prime Video, Apple TV+.
 
 ## Hosting (Railway project "watchlist", set up Oct 2026)

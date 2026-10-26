@@ -27,7 +27,12 @@ export default async function FavoritesPage({ searchParams }: { searchParams: { 
 
   return (
     <div>
-      <h1 className="text-3xl font-bold">Favorites</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-3xl font-bold">Favorites</h1>
+        <Link href="/import" className="text-sm text-marquee underline">
+          Import more
+        </Link>
+      </div>
       <div className="mt-4 flex gap-2">
         {[
           { value: null, label: "All" },
@@ -42,7 +47,15 @@ export default async function FavoritesPage({ searchParams }: { searchParams: { 
 
       {favorites.length === 0 ? (
         <p className="mt-6 max-w-xl text-paper-muted">
-          Nothing here yet. Tap the heart on any show or movie in{" "}
+          Nothing here yet.{" "}
+          <Link href="/import" className="text-marquee underline">
+            Import your Netflix history or a list
+          </Link>
+          ,{" "}
+          <Link href="/welcome" className="text-marquee underline">
+            pick from popular titles
+          </Link>
+          , or tap the heart on any show or movie in{" "}
           <Link href="/browse" className="text-marquee underline">
             Browse
           </Link>{" "}
