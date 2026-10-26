@@ -142,6 +142,39 @@ export async function getRecommendations(mediaType: MediaType, id: number) {
   return summaries(data.results, mediaType);
 }
 
+// ---- Trailers -------------------------------------------------------------
+
+export type Trailer = { key: string; name: string };
+
+// TMDB lists a title's videos (trailers, teasers, clips, featurettes...) with
+// links to YouTube. Pick the best one to show as a preview: an official
+// trailer if there is one, then a teaser, then a scene from it. Interviews and
+// behind-the-scenes videos aren't previews, so they're left out.
+const PREVIEW_RANK: Record<string, number> = { Trailer: 0, Teaser: 1, Clip: 2 };
+
+export function pickTrailer(videos: { results?: any[] } | undefined): Trailer | null {
+  const rank = (v: any) => PREVIEW_RANK[v.type as string];
+  const best = (videos?.results ?? [])
+    .filter((v) => v.site === "YouTube" && v.key && rank(v) !== undefined && (!v.iso_639_1 || v.iso_639_1 === "en"))
+    .sort((a, b) => rank(a) - rank(b) || Number(b.official) - Number(a.official) || (b.published_at ?? "").localeCompare(a.published_at ?? ""))[0];
+  return best ? { key: best.key, name: best.name } : null;
+}
+
+// Shows often only have trailers on their latest season, so look there too.
+export async function getTrailer(mediaType: MediaType, id: number, known?: { videos?: any; latestSeason?: number }): Promise<Trailer | null> {
+  const videos = known?.videos ?? (await tmdb(`/${mediaType}/${id}/videos`, { language: "en-US" }, { revalidate: 86400 }));
+  const found = pickTrailer(videos);
+  if (found || mediaType === "movie") return found;
+  let season = known?.latestSeason;
+  if (season === undefined) season = (await tmdb(`/tv/${id}`, { language: "en-US" }, { revalidate: 6 * 3600 })).number_of_seasons;
+  if (!season) return null;
+  try {
+    return pickTrailer(await tmdb(`/tv/${id}/season/${season}/videos`, { language: "en-US" }, { revalidate: 86400 }));
+  } catch {
+    return null;
+  }
+}
+
 // ---- Where to watch -------------------------------------------------------
 
 export type Provider = { id: number; name: string; logoPath: string | null; priority: number };

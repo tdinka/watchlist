@@ -3,11 +3,12 @@ import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { favoriteKeys } from "@/lib/favorites";
 import { getHouseholdServices, matchServices, servicesForTitles } from "@/lib/services";
-import { hasTmdbKey, imageUrl, isMediaType, parseAvailability, summaries, tmdb, type Provider } from "@/lib/tmdb";
+import { getTrailer, hasTmdbKey, imageUrl, isMediaType, parseAvailability, summaries, tmdb, type Provider } from "@/lib/tmdb";
 import { SaveButtons } from "@/components/SaveButtons";
 import { ServiceLogo } from "@/components/ServiceLogos";
 import { TitleCard, TitleRow } from "@/components/TitleCard";
 import { TmdbProblem } from "@/components/Notice";
+import { TrailerButton } from "@/components/Trailer";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export default async function TitlePage({ params }: { params: { type: string; id
 
   let raw: any;
   try {
-    raw = await tmdb(`/${mediaType}/${id}`, { append_to_response: "watch/providers,recommendations,credits", language: "en-US" }, { revalidate: 6 * 3600 });
+    raw = await tmdb(`/${mediaType}/${id}`, { append_to_response: "watch/providers,recommendations,credits,videos", language: "en-US" }, { revalidate: 6 * 3600 });
   } catch (err) {
     if ((err as Error).message.includes("404")) notFound();
     return <TmdbProblem />;
@@ -66,6 +67,7 @@ export default async function TitlePage({ params }: { params: { type: string; id
 
   const recs = summaries(raw.recommendations?.results, mediaType).slice(0, 18);
   const recServices = await servicesForTitles(recs, mine);
+  const trailer = await getTrailer(mediaType, id, { videos: raw.videos ?? { results: [] }, latestSeason: raw.number_of_seasons }).catch(() => null);
   const state = mediaType === "tv" && isFavorite ? await db.showState.findUnique({ where: { tmdbId: id } }) : null;
 
   const facts = [
@@ -96,8 +98,9 @@ export default async function TitlePage({ params }: { params: { type: string; id
           <p className="text-sm text-paper-muted">{mediaType === "tv" ? "Series" : "Movie"}</p>
           <h1 className="text-3xl font-bold sm:text-4xl">{title}</h1>
           <p className="mt-2 text-sm text-paper-muted">{facts.join(" · ")}</p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             <SaveButtons tmdbId={id} mediaType={mediaType} title={title} posterPath={raw.poster_path ?? null} initial={savedTo} />
+            {trailer && <TrailerButton title={title} trailer={trailer} />}
           </div>
           {raw.overview && <p className="mt-5 max-w-2xl leading-relaxed">{raw.overview}</p>}
           {cast && <p className="mt-3 text-sm text-paper-muted">With {cast}</p>}

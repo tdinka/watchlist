@@ -3,6 +3,7 @@ import { imageUrl, type Provider, type TitleSummary } from "@/lib/tmdb";
 import type { Saved } from "@/lib/favorites";
 import { SaveButtons } from "@/components/SaveButtons";
 import { ServiceLogos } from "@/components/ServiceLogos";
+import { TrailerIcon } from "@/components/Trailer";
 
 export function TitleCard({
   title,
@@ -29,6 +30,9 @@ export function TitleCard({
           <div className="grid aspect-[2/3] place-items-center p-3 text-center text-sm text-paper-muted">{title.title}</div>
         )}
       </Link>
+      <div className="absolute left-1.5 top-1.5">
+        <TrailerIcon title={title.title} mediaType={title.mediaType} tmdbId={title.id} />
+      </div>
       {saved !== undefined && (
         <div className="absolute right-1.5 top-1.5">
           <SaveButtons
