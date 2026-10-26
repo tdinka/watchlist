@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { isListName, type ListName } from "@/lib/favorites";
+import { favoriteKeys, isListName, type ListName } from "@/lib/favorites";
 import { getHouseholdServices } from "@/lib/services";
 import { TitleCard, TitleGrid } from "@/components/TitleCard";
 
@@ -15,7 +15,7 @@ const TABS: { value: ListName; label: string; hint: string }[] = [
   {
     value: "want",
     label: "Want to watch",
-    hint: "Titles you mean to watch. You'll hear when one arrives on your services or gets a new season. Watched it? Tap the heart to move it to Loved.",
+    hint: "Titles you mean to watch. You'll hear when one arrives on your services or gets a new season. Watched it? Tap the heart to add it to Loved, and the bookmark to take it off this list.",
   },
   {
     value: "loved",
@@ -28,10 +28,11 @@ export default async function MyListsPage({ searchParams }: { searchParams: { li
   const user = await currentUser();
   const list: ListName = isListName(searchParams.list) ? searchParams.list : "want";
   const type = searchParams.type === "movie" ? "movie" : searchParams.type === "tv" ? "tv" : null;
-  const [favorites, counts, mine] = await Promise.all([
+  const [favorites, counts, mine, favKeys] = await Promise.all([
     db.favorite.findMany({ where: { userId: user.id, list, ...(type ? { mediaType: type } : {}) }, orderBy: { createdAt: "desc" } }),
     db.favorite.groupBy({ by: ["list"], where: { userId: user.id }, _count: true }),
     getHouseholdServices(user.householdId),
+    favoriteKeys(user.id),
   ]);
   const countFor = (l: ListName) => counts.find((c) => c.list === l)?._count ?? 0;
   const states = new Map(
@@ -137,7 +138,7 @@ export default async function MyListsPage({ searchParams }: { searchParams: { li
                     genreIds: [],
                     popularity: 0,
                   }}
-                  saved={list}
+                  saved={favKeys.get(`${f.mediaType}:${f.tmdbId}`) ?? null}
                   services={services}
                   note={note}
                 />

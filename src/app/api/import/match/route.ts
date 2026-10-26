@@ -45,5 +45,5 @@ export async function POST(req: Request) {
   if (items.length === 0) return NextResponse.json({ error: "None of those could be read." }, { status: 400 });
 
   const [results, favorites] = await Promise.all([matchTitles(items), favoriteKeys(session.user.id)]);
-  return NextResponse.json({ results, favorites: Array.from(favorites.keys()), skipped: problems.length });
+  return NextResponse.json({ results, saved: Object.fromEntries(favorites), skipped: problems.length });
 }

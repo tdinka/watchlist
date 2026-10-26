@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { saveToList } from "@/lib/favorites";
+import { addFavorites, isListName } from "@/lib/favorites";
 
 const schema = z.object({
   tmdbId: z.number().int().positive(),
@@ -18,8 +18,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const { tmdbId, mediaType, title, posterPath, list } = parsed.data;
-  // Saves it to `list`, or moves it there from the other list.
-  await saveToList(session.user, { tmdbId, mediaType, title, posterPath: posterPath ?? null }, list);
+  await addFavorites(session.user, [{ tmdbId, mediaType, title, posterPath: posterPath ?? null }], list);
   return NextResponse.json({ ok: true });
 }
 
@@ -29,9 +28,11 @@ export async function DELETE(req: Request) {
   const url = new URL(req.url);
   const tmdbId = Number(url.searchParams.get("id"));
   const mediaType = url.searchParams.get("type");
-  if (!tmdbId || (mediaType !== "tv" && mediaType !== "movie")) {
+  const list = url.searchParams.get("list");
+  if (!tmdbId || (mediaType !== "tv" && mediaType !== "movie") || (list !== null && !isListName(list))) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
-  await db.favorite.deleteMany({ where: { userId: session.user.id, tmdbId, mediaType } });
+  // Takes it off one list, or off both when no list is given.
+  await db.favorite.deleteMany({ where: { userId: session.user.id, tmdbId, mediaType, ...(list ? { list } : {}) } });
   return NextResponse.json({ ok: true });
 }

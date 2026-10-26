@@ -112,7 +112,7 @@ export default async function HomePage() {
             <TitleCard
               key={f.id}
               compact
-              saved="want"
+              saved={favKeys.get(`${f.mediaType}:${f.tmdbId}`) ?? null}
               services={services.filter((p) => f.availableOn!.split(", ").includes(p.name))}
               title={{
                 id: f.tmdbId,

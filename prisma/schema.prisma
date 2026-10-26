@@ -48,8 +48,9 @@ model Favorite {
   mediaType  String // "tv" | "movie"
   title      String
   posterPath String?
-  // Which of the person's lists it's on: "loved" (watched and liked; drives
-  // recommendations) or "want" (want to watch). One list at a time.
+  // Which list this entry is for: "loved" (watched and liked; drives
+  // recommendations) or "want" (want to watch). A title on both lists has
+  // one entry for each.
   list       String   @default("loved")
   // The household's services this was streaming on at the last check, e.g.
   // "Netflix, HBO Max". "" = on none of them. Null = not checked yet.
@@ -59,7 +60,7 @@ model Favorite {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  @@unique([userId, mediaType, tmdbId])
+  @@unique([userId, mediaType, tmdbId, list])
   @@index([mediaType, tmdbId])
 }
 

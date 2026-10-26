@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { ListName } from "@/lib/favorites";
+import type { ListName, Saved } from "@/lib/favorites";
 
 const HEART = "M12 20s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.5-7 10-7 10z";
 const BOOKMARK = "M6 3h12v18l-6-4-6 4z";
@@ -15,8 +15,8 @@ function Icon({ d, filled }: { d: string; filled: boolean }) {
   );
 }
 
-// "Want to watch" and "Loved it". A title is on one list at most: tapping the
-// other one moves it, tapping the active one takes it off.
+// "Want to watch" and "Loved it" are independent switches: each one puts the
+// title on, or takes it off, its own list.
 export function SaveButtons({
   tmdbId,
   mediaType,
@@ -29,33 +29,32 @@ export function SaveButtons({
   mediaType: "tv" | "movie";
   title: string;
   posterPath: string | null;
-  initial: ListName | null;
+  initial: Saved | null;
   variant?: "buttons" | "icons";
 }) {
   const router = useRouter();
-  const [list, setList] = useState<ListName | null>(initial);
-  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<Saved>(initial ?? { want: false, loved: false });
+  const [busy, setBusy] = useState<ListName | null>(null);
 
-  async function choose(target: ListName) {
-    const before = list;
-    const next = list === target ? null : target;
-    setBusy(true);
-    setList(next);
-    const res = next
+  async function toggle(list: ListName) {
+    const on = !saved[list];
+    setBusy(list);
+    setSaved((s) => ({ ...s, [list]: on }));
+    const res = on
       ? await fetch("/api/favorites", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ tmdbId, mediaType, title, posterPath, list: next }),
+          body: JSON.stringify({ tmdbId, mediaType, title, posterPath, list }),
         })
-      : await fetch(`/api/favorites?type=${mediaType}&id=${tmdbId}`, { method: "DELETE" });
-    if (!res.ok) setList(before);
-    setBusy(false);
+      : await fetch(`/api/favorites?type=${mediaType}&id=${tmdbId}&list=${list}`, { method: "DELETE" });
+    if (!res.ok) setSaved((s) => ({ ...s, [list]: !on }));
+    setBusy(null);
     router.refresh();
   }
 
   const options = [
-    { value: "want" as const, icon: BOOKMARK, on: "On Want to watch", off: "Want to watch", label: `Want to watch ${title}` },
-    { value: "loved" as const, icon: HEART, on: "Loved it", off: "Loved it", label: `Loved ${title}` },
+    { value: "want" as const, icon: BOOKMARK, on: "On Want to watch", off: "Want to watch", name: "Want to watch" },
+    { value: "loved" as const, icon: HEART, on: "Loved it", off: "Loved it", name: "Loved" },
   ];
 
   if (variant === "icons") {
@@ -64,14 +63,14 @@ export function SaveButtons({
         {options.map((o) => (
           <button
             key={o.value}
-            onClick={() => choose(o.value)}
-            disabled={busy}
-            aria-pressed={list === o.value}
-            aria-label={list === o.value ? `Remove ${title} from ${o.value === "want" ? "Want to watch" : "Loved"}` : o.label}
-            title={o.off}
-            className={`grid h-8 w-8 place-items-center rounded-full bg-night/80 backdrop-blur transition ${list === o.value ? "text-marquee" : "text-paper hover:text-marquee"}`}
+            onClick={() => toggle(o.value)}
+            disabled={busy === o.value}
+            aria-pressed={saved[o.value]}
+            aria-label={saved[o.value] ? `Remove ${title} from ${o.name}` : `Add ${title} to ${o.name}`}
+            title={saved[o.value] ? `On ${o.name}` : `Add to ${o.name}`}
+            className={`grid h-8 w-8 place-items-center rounded-full bg-night/80 backdrop-blur transition ${saved[o.value] ? "text-marquee" : "text-paper hover:text-marquee"}`}
           >
-            <Icon d={o.icon} filled={list === o.value} />
+            <Icon d={o.icon} filled={saved[o.value]} />
           </button>
         ))}
       </div>
@@ -81,9 +80,15 @@ export function SaveButtons({
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => (
-        <button key={o.value} onClick={() => choose(o.value)} disabled={busy} aria-pressed={list === o.value} className={list === o.value ? "btn-primary" : "btn-quiet"}>
-          <Icon d={o.icon} filled={list === o.value} />
-          {list === o.value ? o.on : o.off}
+        <button
+          key={o.value}
+          onClick={() => toggle(o.value)}
+          disabled={busy === o.value}
+          aria-pressed={saved[o.value]}
+          className={saved[o.value] ? "btn-primary" : "btn-quiet"}
+        >
+          <Icon d={o.icon} filled={saved[o.value]} />
+          {saved[o.value] ? o.on : o.off}
         </button>
       ))}
     </div>

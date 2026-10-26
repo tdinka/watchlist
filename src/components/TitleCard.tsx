@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { imageUrl, type Provider, type TitleSummary } from "@/lib/tmdb";
-import type { ListName } from "@/lib/favorites";
+import type { Saved } from "@/lib/favorites";
 import { SaveButtons } from "@/components/SaveButtons";
 import { ServiceLogos } from "@/components/ServiceLogos";
 
@@ -14,7 +14,7 @@ export function TitleCard({
 }: {
   title: TitleSummary;
   services?: Provider[];
-  saved?: ListName | null; // which list it's on; leave out to hide the save buttons
+  saved?: Saved | null; // which lists it's on; leave out to hide the save buttons
   note?: string | null;
   children?: React.ReactNode;
   compact?: boolean;

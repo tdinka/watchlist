@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { ListName } from "@/lib/favorites";
+import type { ListName, Saved } from "@/lib/favorites";
 import type { MatchQuery, MatchResult } from "@/lib/matching";
 import { groupHistory, parseNetflixCsv, parsePastedList } from "@/lib/netflix";
 import { imageUrl } from "@/lib/tmdb";
@@ -21,7 +21,7 @@ export function ImportClient() {
   const [source, setSource] = useState<Source>("netflix");
   const [text, setText] = useState("");
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<Record<string, Saved>>({});
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -51,16 +51,17 @@ export function ImportClient() {
       setError((await res.json().catch(() => null))?.error ?? "Couldn't look those up. Try again in a minute.");
       return;
     }
-    const data: { results: MatchResult[]; favorites: string[]; skipped?: number } = await res.json();
+    const data: { results: MatchResult[]; saved: Record<string, Saved>; skipped?: number } = await res.json();
     if (data.skipped) {
       setNote((n) => [n, `${data.skipped} line${data.skipped === 1 ? "" : "s"} couldn't be read and ${data.skipped === 1 ? "was" : "were"} skipped.`].filter(Boolean).join(" "));
     }
-    const favs = new Set(data.favorites);
-    setFavorites(favs);
+    setSaved(data.saved);
+    // Only the list being added to counts: a Loved title can still go on Want to watch.
+    const list: ListName = from === "netflix" ? "loved" : target;
     setRows(
       data.results.map((r) => {
         const best = r.candidates[0];
-        const already = best ? favs.has(`${best.mediaType}:${best.id}`) : false;
+        const already = best ? Boolean(data.saved[`${best.mediaType}:${best.id}`]?.[list]) : false;
         // From Netflix, tick shows you watched at least 3 episodes of; movies
         // you watched once might not be ones you loved, so they start unticked.
         // A typed list is things you chose, so everything starts ticked.
@@ -148,7 +149,7 @@ export function ImportClient() {
         <ul className="card divide-y divide-night-line">
           {rows.map((r, i) => {
             const t = r.pick >= 0 ? r.candidates[r.pick] : null;
-            const already = t ? favorites.has(`${t.mediaType}:${t.id}`) : false;
+            const already = t ? Boolean(saved[`${t.mediaType}:${t.id}`]?.[source === "netflix" ? "loved" : target]) : false;
             const poster = imageUrl(t?.posterPath, "w92");
             const watched =
               r.count && r.kind === "tv"
@@ -181,7 +182,7 @@ export function ImportClient() {
                     <p className="font-medium">Couldn&apos;t find &ldquo;{r.query}&rdquo;</p>
                   )}
                   <p className="text-xs text-paper-muted">
-                    {[t && t.title.toLowerCase() !== r.query.toLowerCase() ? `From “${r.query}”` : null, watched, last ? `last ${last}` : null, already ? "already on your lists" : null]
+                    {[t && t.title.toLowerCase() !== r.query.toLowerCase() ? `From “${r.query}”` : null, watched, last ? `last ${last}` : null, already ? `already on ${source === "list" && target === "want" ? "Want to watch" : "Loved"}` : null]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>

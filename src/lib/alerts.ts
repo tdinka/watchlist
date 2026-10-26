@@ -71,7 +71,10 @@ export async function runChecks(opts: { householdId?: string } = {}) {
   };
 
   const byTitle = new Map<string, typeof favorites>();
-  for (const fav of favorites) {
+  // Want-to-watch entries first: a title on both of someone's lists makes the
+  // same alert twice, and only the first is kept, so it gets the wording that
+  // mentions Want to watch.
+  for (const fav of favorites.sort((a, b) => Number(b.list === "want") - Number(a.list === "want"))) {
     const key = `${fav.mediaType}:${fav.tmdbId}`;
     byTitle.set(key, [...(byTitle.get(key) ?? []), fav]);
   }
