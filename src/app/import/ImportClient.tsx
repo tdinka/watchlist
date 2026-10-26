@@ -26,7 +26,8 @@ export function ImportClient() {
   const [busy, setBusy] = useState<string | null>(null);
   const [added, setAdded] = useState<number | null>(null);
 
-  async function match(queries: MatchQuery[], from: Source) {
+  async function match(all: MatchQuery[], from: Source) {
+    const queries = all.filter((q) => q.query.trim());
     if (queries.length === 0) {
       setError(from === "netflix" ? "No titles found in that file." : "Type at least one title.");
       return;
@@ -43,10 +44,13 @@ export function ImportClient() {
     });
     setBusy(null);
     if (!res.ok) {
-      setError("Couldn't look those up. Try again in a minute.");
+      setError((await res.json().catch(() => null))?.error ?? "Couldn't look those up. Try again in a minute.");
       return;
     }
-    const data: { results: MatchResult[]; favorites: string[] } = await res.json();
+    const data: { results: MatchResult[]; favorites: string[]; skipped?: number } = await res.json();
+    if (data.skipped) {
+      setNote((n) => [n, `${data.skipped} line${data.skipped === 1 ? "" : "s"} couldn't be read and ${data.skipped === 1 ? "was" : "were"} skipped.`].filter(Boolean).join(" "));
+    }
     const favs = new Set(data.favorites);
     setFavorites(favs);
     setRows(

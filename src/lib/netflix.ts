@@ -48,12 +48,16 @@ export function parseNetflixCsv(text: string): HistoryRow[] {
   if (lines.length === 0) return [];
   const header = splitCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
   const titleCol = header.indexOf("title");
-  const dateCol = header.indexOf("date");
+  // The full data download (ViewingActivity.csv) says "Start Time" and also
+  // lists trailers and previews, marked in "Supplemental Video Type".
+  const dateCol = header.indexOf("date") !== -1 ? header.indexOf("date") : header.indexOf("start time");
+  const extraCol = header.indexOf("supplemental video type");
   if (titleCol === -1) throw new Error("This doesn't look like a Netflix viewing history file (no Title column).");
   return lines.slice(1).flatMap((line) => {
     const cells = splitCsvLine(line);
     const title = (cells[titleCol] ?? "").trim();
-    return title ? [{ title, date: dateCol === -1 ? null : toIsoDate(cells[dateCol] ?? "") }] : [];
+    if (!title || (extraCol !== -1 && (cells[extraCol] ?? "").trim())) return [];
+    return [{ title, date: dateCol === -1 ? null : toIsoDate(cells[dateCol] ?? "") }];
   });
 }
 
@@ -61,7 +65,8 @@ export function parseNetflixCsv(text: string): HistoryRow[] {
 export function groupHistory(rows: HistoryRow[]): MatchQuery[] {
   type Group = { query: string; kind?: "tv"; count: number; lastWatched: string | null; titles: Set<string> };
   const groups = new Map<string, Group>();
-  const add = (name: string, kind: "tv" | undefined, row: HistoryRow) => {
+  const add = (rawName: string, kind: "tv" | undefined, row: HistoryRow) => {
+    const name = rawName.trim() || row.title; // never a blank name (a title starting with ": ")
     const key = name.toLowerCase();
     const g = groups.get(key) ?? { query: name, kind, count: 0, lastWatched: null, titles: new Set<string>() };
     g.count++;
