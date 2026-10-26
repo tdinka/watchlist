@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { addFavorites } from "@/lib/favorites";
+import { saveToList } from "@/lib/favorites";
 
 const schema = z.object({
   tmdbId: z.number().int().positive(),
   mediaType: z.enum(["tv", "movie"]),
   title: z.string().min(1).max(300),
   posterPath: z.string().max(200).nullable().optional(),
+  list: z.enum(["loved", "want"]).default("loved"),
 });
 
 export async function POST(req: Request) {
@@ -16,8 +17,9 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const { tmdbId, mediaType, title, posterPath } = parsed.data;
-  await addFavorites(session.user, [{ tmdbId, mediaType, title, posterPath: posterPath ?? null }]);
+  const { tmdbId, mediaType, title, posterPath, list } = parsed.data;
+  // Saves it to `list`, or moves it there from the other list.
+  await saveToList(session.user, { tmdbId, mediaType, title, posterPath: posterPath ?? null }, list);
   return NextResponse.json({ ok: true });
 }
 

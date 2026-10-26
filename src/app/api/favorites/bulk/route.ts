@@ -17,6 +17,7 @@ const schema = z.object({
     )
     .min(1)
     .max(300),
+  list: z.enum(["loved", "want"]).default("loved"),
 });
 
 // Adds many favorites at once (Import page and the pick-what-you-love screen).
@@ -25,6 +26,6 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
-  const added = await addFavorites(session.user, parsed.data.items);
+  const added = await addFavorites(session.user, parsed.data.items, parsed.data.list);
   return NextResponse.json({ added });
 }

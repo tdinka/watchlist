@@ -3,19 +3,36 @@ import { recordShowState } from "@/lib/alerts";
 import { getHouseholdServices, matchServices } from "@/lib/services";
 import { getAvailability, mapLimit, type MediaType } from "@/lib/tmdb";
 
-export type FavoriteInput = { tmdbId: number; mediaType: MediaType; title: string; posterPath: string | null };
+// "loved" = watched and liked (drives recommendations); "want" = want to watch.
+export type ListName = "loved" | "want";
+export const LISTS: ListName[] = ["want", "loved"];
 
-// Keys like "tv:1399" for everything this person has favorited.
-export async function favoriteKeys(userId: string): Promise<Set<string>> {
-  const favs = await db.favorite.findMany({ where: { userId }, select: { tmdbId: true, mediaType: true } });
-  return new Set(favs.map((f) => `${f.mediaType}:${f.tmdbId}`));
+export function isListName(value: unknown): value is ListName {
+  return value === "loved" || value === "want";
 }
 
-// Adds favorites (skipping ones already there) and returns how many were new.
-// For each one it notes which of the household's services it's on now, and
-// for shows the latest episode, so the daily check only alerts about what
-// comes out from now on.
-export async function addFavorites(user: { id: string; householdId: string }, items: FavoriteInput[]) {
+export type FavoriteInput = { tmdbId: number; mediaType: MediaType; title: string; posterPath: string | null };
+
+// Which list each saved title is on, keyed like "tv:1399".
+export async function favoriteKeys(userId: string): Promise<Map<string, ListName>> {
+  const favs = await db.favorite.findMany({ where: { userId }, select: { tmdbId: true, mediaType: true, list: true } });
+  return new Map(favs.map((f) => [`${f.mediaType}:${f.tmdbId}`, isListName(f.list) ? f.list : "loved"]));
+}
+
+// Puts one title on a list, moving it if it's already on the other one.
+export async function saveToList(user: { id: string; householdId: string }, item: FavoriteInput, list: ListName) {
+  const moved = await db.favorite.updateMany({
+    where: { userId: user.id, mediaType: item.mediaType, tmdbId: item.tmdbId },
+    data: { list },
+  });
+  if (moved.count === 0) await addFavorites(user, [item], list);
+}
+
+// Adds titles to a list (skipping ones already saved on either list) and
+// returns how many were new. For each one it notes which of the household's
+// services it's on now, and for shows the latest episode, so the daily check
+// only alerts about what comes out from now on.
+export async function addFavorites(user: { id: string; householdId: string }, items: FavoriteInput[], list: ListName = "loved") {
   const existing = await favoriteKeys(user.id);
   const seen = new Set<string>();
   const fresh = items.filter((i) => {
@@ -34,7 +51,7 @@ export async function addFavorites(user: { id: string; householdId: string }, it
         .map((p) => p.name)
         .join(", ");
     } catch {}
-    return { userId: user.id, ...item, availableOn };
+    return { userId: user.id, ...item, list, availableOn };
   });
   const { count } = await db.favorite.createMany({ data: rows, skipDuplicates: true });
 

@@ -98,7 +98,7 @@ export default async function BrowsePage({ searchParams }: { searchParams: Searc
         ) : (
           <TitleGrid>
             {data.results.map((t) => (
-              <TitleCard key={`${t.mediaType}:${t.id}`} title={t} services={badge} favorite={favKeys.has(`${t.mediaType}:${t.id}`)} />
+              <TitleCard key={`${t.mediaType}:${t.id}`} title={t} services={badge} saved={favKeys.get(`${t.mediaType}:${t.id}`) ?? null} />
             ))}
           </TitleGrid>
         )}

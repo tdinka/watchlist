@@ -22,15 +22,15 @@ export default async function ForYouPage() {
   } catch {
     return <TmdbProblem />;
   }
-  const [favKeys, favCount] = await Promise.all([favoriteKeys(user.id), db.favorite.count({ where: { userId: user.id } })]);
+  const [favKeys, favCount] = await Promise.all([favoriteKeys(user.id), db.favorite.count({ where: { userId: user.id, list: "loved" } })]);
 
   return (
     <div>
       <h1 className="text-3xl font-bold">For you</h1>
       <p className="mt-1 max-w-2xl text-paper-muted">
         {favCount === 0
-          ? "Highly rated on your services. Favorite a few things you love and these will get personal."
-          : "Picked from what you've favorited, and all streaming on your services."}
+          ? "Highly rated on your services. Tap the heart on a few things you've loved and these will get personal."
+          : "Picked from what you've loved, and all streaming on your services."}
       </p>
       <div className="mt-6">
         <TitleGrid>
@@ -39,7 +39,7 @@ export default async function ForYouPage() {
               key={`${t.mediaType}:${t.id}`}
               title={t}
               services={t.services}
-              favorite={favKeys.has(`${t.mediaType}:${t.id}`)}
+              saved={favKeys.get(`${t.mediaType}:${t.id}`) ?? null}
               note={t.because ? `Because you liked ${t.because}` : null}
             >
               <ActionButton url="/api/dismiss" body={{ tmdbId: t.id, mediaType: t.mediaType }} className="mt-1 text-xs text-paper-faint hover:text-paper">

@@ -46,7 +46,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { w
         {catalog.length ? <ServicesPicker catalog={catalog} selected={household.services} /> : <TmdbProblem />}
       </Section>
 
-      <Section title="Add favorites in bulk" hint="Bring in what you already watch so alerts and recommendations work straight away.">
+      <Section title="Fill your lists in bulk" hint="Bring in what you already watch so alerts and recommendations work straight away.">
         <div className="flex flex-wrap gap-2">
           <Link href="/import" className="btn-quiet">
             Import Netflix history or a list
@@ -61,13 +61,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: { w
         <div className="space-y-5">
           <EmailToggle initial={me.emailAlerts} configured={emailConfigured()} />
           <div>
-            <p className="mb-2 text-sm text-paper-muted">The app checks your favorites once a day. You can also check now:</p>
+            <p className="mb-2 text-sm text-paper-muted">The app checks everything on your lists once a day. You can also check now:</p>
             <CheckNowButton />
           </div>
         </div>
       </Section>
 
-      <Section title="Household" hint="Everyone in the household shares the services list. Favorites and alerts are each person's own.">
+      <Section title="Household" hint="Everyone in the household shares the services list. Lists and alerts are each person's own.">
         <HouseholdName initial={household.name} />
         <p className="mt-4 text-sm text-paper-muted">
           Invite someone: they choose &ldquo;Join with a code&rdquo; when creating an account and enter{" "}

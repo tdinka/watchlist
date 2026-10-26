@@ -102,7 +102,10 @@ export async function runChecks(opts: { householdId?: string } = {}) {
             mediaType,
             title: fav.title,
             posterPath: fav.posterPath,
-            message: `${fav.title} is now streaming on ${joinNames(names)}`,
+            message:
+              fav.list === "want"
+                ? `${fav.title}, from your Want to watch list, is now streaming on ${joinNames(names)}`
+                : `${fav.title} is now streaming on ${joinNames(names)}`,
           });
         }
         if (fav.availableOn !== joined) {

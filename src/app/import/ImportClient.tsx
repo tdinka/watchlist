@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import type { ListName } from "@/lib/favorites";
 import type { MatchQuery, MatchResult } from "@/lib/matching";
 import { groupHistory, parseNetflixCsv, parsePastedList } from "@/lib/netflix";
 import { imageUrl } from "@/lib/tmdb";
@@ -25,6 +26,9 @@ export function ImportClient() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [added, setAdded] = useState<number | null>(null);
+  // A Netflix history is what you've watched, so it goes to Loved; a typed
+  // list can be either.
+  const [target, setTarget] = useState<ListName>("loved");
 
   async function match(all: MatchQuery[], from: Source) {
     const queries = all.filter((q) => q.query.trim());
@@ -88,7 +92,7 @@ export function ImportClient() {
     const res = await fetch("/api/favorites/bulk", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items, list: source === "netflix" ? "loved" : target }),
     });
     setBusy(null);
     if (!res.ok) {
@@ -106,15 +110,19 @@ export function ImportClient() {
     return (
       <div className="card mt-6 p-6">
         <h2 className="text-xl font-bold">
-          Added {added} favorite{added === 1 ? "" : "s"}
+          Added {added} to {source === "list" && target === "want" ? "Want to watch" : "Loved"}
         </h2>
-        <p className="mt-1 text-paper-muted">You&apos;ll get alerts for new episodes from now on, and your recommendations now know your taste.</p>
+        <p className="mt-1 text-paper-muted">
+          {source === "list" && target === "want"
+            ? "You'll hear when they arrive on your services or get new seasons."
+            : "You'll get alerts for new episodes from now on, and your recommendations now know your taste."}
+        </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Link href="/for-you" className="btn-primary">
             See recommendations
           </Link>
-          <Link href="/favorites" className="btn-quiet">
-            View favorites
+          <Link href={`/favorites?list=${source === "list" ? target : "loved"}`} className="btn-quiet">
+            View the list
           </Link>
           <button className="btn-quiet" onClick={() => setAdded(null)}>
             Import more
@@ -173,7 +181,7 @@ export function ImportClient() {
                     <p className="font-medium">Couldn&apos;t find &ldquo;{r.query}&rdquo;</p>
                   )}
                   <p className="text-xs text-paper-muted">
-                    {[t && t.title.toLowerCase() !== r.query.toLowerCase() ? `From “${r.query}”` : null, watched, last ? `last ${last}` : null, already ? "already a favorite" : null]
+                    {[t && t.title.toLowerCase() !== r.query.toLowerCase() ? `From “${r.query}”` : null, watched, last ? `last ${last}` : null, already ? "already on your lists" : null]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
@@ -204,7 +212,7 @@ export function ImportClient() {
         {error && <p className="mt-3 text-sm text-flare">{error}</p>}
         <div className="sticky bottom-20 mt-4 flex items-center gap-3 rounded-xl border border-night-line bg-night-surface/95 p-3 backdrop-blur md:bottom-4">
           <button className="btn-primary" disabled={chosen.length === 0 || !!busy} onClick={addChosen}>
-            {busy ?? `Add ${chosen.length} to favorites`}
+            {busy ?? `Add ${chosen.length} to ${source === "list" && target === "want" ? "Want to watch" : "Loved"}`}
           </button>
           <button className="text-sm text-paper-muted hover:text-paper" onClick={() => setRows(null)}>
             Start over
@@ -240,6 +248,7 @@ export function ImportClient() {
               NetflixViewingHistory.csv.
             </li>
             <li>Choose that file below. It&apos;s read on this device; only the show and movie names are looked up.</li>
+            <li>What you pick goes on your Loved list, since you&apos;ve watched it.</li>
           </ol>
           <label className="btn-primary mt-4 cursor-pointer">
             {busy ?? "Choose the file"}
@@ -258,8 +267,16 @@ export function ImportClient() {
         </div>
       ) : (
         <div className="card mt-4 p-5">
-          <h2 className="text-lg font-bold">Shows and movies you love</h2>
-          <p className="mt-1 text-sm text-paper-muted">One per line. Good for HBO Max, Prime Video, Apple TV, or anything from memory.</p>
+          <h2 className="text-lg font-bold">Type titles, one per line</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-paper-muted">Add them to:</span>
+            {(["want", "loved"] as const).map((l) => (
+              <button key={l} type="button" className={`chip ${target === l ? "chip-on" : ""}`} onClick={() => setTarget(l)}>
+                {l === "want" ? "Want to watch" : "Loved (already watched)"}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-sm text-paper-muted">Good for HBO Max, Prime Video, Apple TV, or anything from memory.</p>
           <textarea
             className="input mt-3 h-48 font-body"
             placeholder={"The Bear\nSuccession\nSlow Horses\nDune: Part Two"}

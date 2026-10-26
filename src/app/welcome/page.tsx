@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 // A mix of what's popular now and long-time favorites, so there's something
 // for most tastes. No duplicates; things already favorited are left out.
-async function pickable(providerIds: number[], skip: Set<string>) {
+async function pickable(providerIds: number[], skip: { has(key: string): boolean }) {
   const [popTv, topTv, popMovies, topMovies] = await Promise.all([
     discover({ mediaType: "tv", providerIds }),
     discover({ mediaType: "tv", providerIds, sort: "top" }),
@@ -51,7 +51,7 @@ export default async function WelcomePage() {
     <div>
       <h1 className="text-3xl font-bold">What do you love?</h1>
       <p className="mt-1 max-w-2xl text-paper-muted">
-        Tap a few shows and movies you&apos;ve enjoyed. They become your favorites, so recommendations fit your taste and you hear
+        Tap a few shows and movies you&apos;ve enjoyed. They go on your Loved list, so recommendations fit your taste and you hear
         about new seasons.
       </p>
       <PickGrid tv={titles.tv} movies={titles.movies} />

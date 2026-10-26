@@ -98,7 +98,7 @@ export function EmailToggle({ initial, configured }: { initial: boolean; configu
             if (!res.ok) setOn(!next);
           }}
         />
-        <span>Email me about new seasons, new episodes, and favorites arriving on our services</span>
+        <span>Email me about new seasons, new episodes, and titles from my lists arriving on our services</span>
       </label>
       {configured ? (
         <div className="flex items-center gap-3">
@@ -144,7 +144,7 @@ export function CheckNowButton() {
       </button>
       {result && (
         <p className="text-sm text-paper-muted">
-          Checked {result.titlesChecked} favorite{result.titlesChecked === 1 ? "" : "s"}: {result.alertsCreated} new alert
+          Checked {result.titlesChecked} title{result.titlesChecked === 1 ? "" : "s"}: {result.alertsCreated} new alert
           {result.alertsCreated === 1 ? "" : "s"}
           {result.emailsSent ? `, ${result.emailsSent} email${result.emailsSent === 1 ? "" : "s"} sent` : ""}.
           {result.errors.length > 0 && ` ${result.errors.length} couldn't be checked.`}

@@ -5,15 +5,18 @@ import { discover, getRecommendations, mapLimit, type MediaType, type Provider, 
 export type Recommendation = TitleSummary & { because: string | null; services: Provider[] };
 
 // Suggestions built from TMDB's "people who liked this also liked" lists for
-// each favorite. A title suggested by several favorites ranks higher. Only
-// titles streaming on the household's services are kept.
+// each title on the Loved list (not Want to watch: those aren't known likes).
+// A title suggested by several loved titles ranks higher. Only titles
+// streaming on the household's services are kept.
 export async function recommendFor(userId: string, mine: Provider[], limit = 24): Promise<Recommendation[]> {
-  const [favorites, dismissed] = await Promise.all([
-    db.favorite.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 20 }),
+  const [favorites, saved, dismissed] = await Promise.all([
+    db.favorite.findMany({ where: { userId, list: "loved" }, orderBy: { createdAt: "desc" }, take: 20 }),
+    db.favorite.findMany({ where: { userId }, select: { mediaType: true, tmdbId: true } }),
     db.dismissed.findMany({ where: { userId } }),
   ]);
+  // Anything already on either list isn't suggested again.
   const skip = new Set([
-    ...favorites.map((f) => `${f.mediaType}:${f.tmdbId}`),
+    ...saved.map((f) => `${f.mediaType}:${f.tmdbId}`),
     ...dismissed.map((d) => `${d.mediaType}:${d.tmdbId}`),
   ]);
 

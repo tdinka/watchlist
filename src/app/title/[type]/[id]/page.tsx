@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { favoriteKeys } from "@/lib/favorites";
 import { getHouseholdServices, matchServices, servicesForTitles } from "@/lib/services";
 import { hasTmdbKey, imageUrl, isMediaType, parseAvailability, summaries, tmdb, type Provider } from "@/lib/tmdb";
-import { FavoriteButton } from "@/components/FavoriteButton";
+import { SaveButtons } from "@/components/SaveButtons";
 import { ServiceLogo } from "@/components/ServiceLogos";
 import { TitleCard, TitleRow } from "@/components/TitleCard";
 import { TmdbProblem } from "@/components/Notice";
@@ -61,7 +61,8 @@ export default async function TitlePage({ params }: { params: { type: string; id
   const title: string = mediaType === "movie" ? raw.title : raw.name;
   const date: string | undefined = mediaType === "movie" ? raw.release_date : raw.first_air_date;
   const favKeys = await favoriteKeys(user.id);
-  const isFavorite = favKeys.has(`${mediaType}:${id}`);
+  const savedTo = favKeys.get(`${mediaType}:${id}`) ?? null;
+  const isFavorite = savedTo !== null;
 
   const recs = summaries(raw.recommendations?.results, mediaType).slice(0, 18);
   const recServices = await servicesForTitles(recs, mine);
@@ -96,7 +97,7 @@ export default async function TitlePage({ params }: { params: { type: string; id
           <h1 className="text-3xl font-bold sm:text-4xl">{title}</h1>
           <p className="mt-2 text-sm text-paper-muted">{facts.join(" · ")}</p>
           <div className="mt-4">
-            <FavoriteButton tmdbId={id} mediaType={mediaType} title={title} posterPath={raw.poster_path ?? null} initial={isFavorite} />
+            <SaveButtons tmdbId={id} mediaType={mediaType} title={title} posterPath={raw.poster_path ?? null} initial={savedTo} />
           </div>
           {raw.overview && <p className="mt-5 max-w-2xl leading-relaxed">{raw.overview}</p>}
           {cast && <p className="mt-3 text-sm text-paper-muted">With {cast}</p>}
@@ -108,7 +109,7 @@ export default async function TitlePage({ params }: { params: { type: string; id
               <p className="text-sm">
                 <span className="font-semibold">Not on your services right now.</span>{" "}
                 <span className="text-paper-muted">
-                  {isFavorite ? "You'll hear when it arrives." : "Favorite it to hear when it arrives."}
+                  {isFavorite ? "You'll hear when it arrives." : "Add it to Want to watch to hear when it arrives."}
                 </span>
               </p>
             )}
@@ -164,7 +165,7 @@ export default async function TitlePage({ params }: { params: { type: string; id
               key={`${t.mediaType}:${t.id}`}
               title={t}
               compact
-              favorite={favKeys.has(`${t.mediaType}:${t.id}`)}
+              saved={favKeys.get(`${t.mediaType}:${t.id}`) ?? null}
               services={recServices.get(`${t.mediaType}:${t.id}`)}
             />
           ))}

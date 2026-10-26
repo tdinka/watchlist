@@ -9,7 +9,7 @@ const TABS = [
   { href: "/browse", label: "Browse", icon: "M4 5h16v14H4zM4 9h16M9 5v14" },
   { href: "/search", label: "Search", icon: "M11 4a7 7 0 100 14 7 7 0 000-14zM20 20l-4-4" },
   { href: "/for-you", label: "For you", icon: "M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z" },
-  { href: "/favorites", label: "Favorites", icon: "M12 20s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.5-7 10-7 10z" },
+  { href: "/favorites", label: "My lists", icon: "M6 3h12v18l-6-4-6 4z" },
 ];
 
 function Icon({ d }: { d: string }) {

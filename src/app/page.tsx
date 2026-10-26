@@ -34,11 +34,17 @@ async function recentOnServices(services: Provider[]) {
 
 export default async function HomePage() {
   const user = await currentUser();
-  const [alerts, services, favKeys, shows] = await Promise.all([
+  const [alerts, services, favKeys, shows, ready] = await Promise.all([
     db.alert.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 12 }),
     getHouseholdServices(user.householdId),
     favoriteKeys(user.id),
     db.favorite.findMany({ where: { userId: user.id, mediaType: "tv" }, orderBy: { createdAt: "desc" } }),
+    // Want-to-watch titles that are on one of the household's services now.
+    db.favorite.findMany({
+      where: { userId: user.id, list: "want", AND: [{ availableOn: { not: null } }, { availableOn: { not: "" } }] },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
   ]);
   const states = await db.showState.findMany({ where: { tmdbId: { in: shows.map((s) => s.tmdbId) } } });
   const today = new Date().toISOString().slice(0, 10);
@@ -100,6 +106,31 @@ export default async function HomePage() {
         </section>
       )}
 
+      {ready.length > 0 && (
+        <TitleRow heading="Ready to watch from your list" href="/favorites?list=want">
+          {ready.map((f) => (
+            <TitleCard
+              key={f.id}
+              compact
+              saved="want"
+              services={services.filter((p) => f.availableOn!.split(", ").includes(p.name))}
+              title={{
+                id: f.tmdbId,
+                mediaType: f.mediaType as "tv" | "movie",
+                title: f.title,
+                posterPath: f.posterPath,
+                backdropPath: null,
+                year: null,
+                overview: "",
+                rating: null,
+                genreIds: [],
+                popularity: 0,
+              }}
+            />
+          ))}
+        </TitleRow>
+      )}
+
       {upcoming.length > 0 && (
         <section className="mt-8">
           <h2 className="mb-3 text-xl font-bold">Coming up on your shows</h2>
@@ -119,7 +150,7 @@ export default async function HomePage() {
 
       {shows.length === 0 && alerts.length === 0 && (
         <p className="mt-4 max-w-xl text-paper-muted">
-          Tap the heart on any show to follow it, or{" "}
+          Tap the bookmark on anything you want to watch and the heart on things you&apos;ve loved, or{" "}
           <Link href="/import" className="text-marquee underline">
             import what you already watch
           </Link>
@@ -139,7 +170,7 @@ export default async function HomePage() {
                 key={`${t.mediaType}:${t.id}`}
                 title={t}
                 compact
-                favorite={favKeys.has(`${t.mediaType}:${t.id}`)}
+                saved={favKeys.get(`${t.mediaType}:${t.id}`) ?? null}
                 services={row.service ? [row.service] : undefined}
               />
             ))}

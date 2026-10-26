@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isListName, type ListName } from "@/lib/favorites";
 import { getHouseholdServices } from "@/lib/services";
 import { TitleCard, TitleGrid } from "@/components/TitleCard";
 
@@ -10,13 +11,29 @@ function shortDate(date: string) {
   return new Date(date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default async function FavoritesPage({ searchParams }: { searchParams: { type?: string } }) {
+const TABS: { value: ListName; label: string; hint: string }[] = [
+  {
+    value: "want",
+    label: "Want to watch",
+    hint: "Titles you mean to watch. You'll hear when one arrives on your services or gets a new season. Watched it? Tap the heart to move it to Loved.",
+  },
+  {
+    value: "loved",
+    label: "Loved",
+    hint: "Titles you've watched and liked. Recommendations are based on these, and you'll hear about new seasons.",
+  },
+];
+
+export default async function MyListsPage({ searchParams }: { searchParams: { list?: string; type?: string } }) {
   const user = await currentUser();
+  const list: ListName = isListName(searchParams.list) ? searchParams.list : "want";
   const type = searchParams.type === "movie" ? "movie" : searchParams.type === "tv" ? "tv" : null;
-  const [favorites, mine] = await Promise.all([
-    db.favorite.findMany({ where: { userId: user.id, ...(type ? { mediaType: type } : {}) }, orderBy: { createdAt: "desc" } }),
+  const [favorites, counts, mine] = await Promise.all([
+    db.favorite.findMany({ where: { userId: user.id, list, ...(type ? { mediaType: type } : {}) }, orderBy: { createdAt: "desc" } }),
+    db.favorite.groupBy({ by: ["list"], where: { userId: user.id }, _count: true }),
     getHouseholdServices(user.householdId),
   ]);
+  const countFor = (l: ListName) => counts.find((c) => c.list === l)?._count ?? 0;
   const states = new Map(
     (await db.showState.findMany({ where: { tmdbId: { in: favorites.filter((f) => f.mediaType === "tv").map((f) => f.tmdbId) } } })).map((s) => [
       s.tmdbId,
@@ -24,22 +41,38 @@ export default async function FavoritesPage({ searchParams }: { searchParams: { 
     ]),
   );
   const today = new Date().toISOString().slice(0, 10);
+  const href = (l: ListName, t: string | null) => `/favorites?list=${l}${t ? `&type=${t}` : ""}`;
+  const tab = TABS.find((t) => t.value === list)!;
 
   return (
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-3xl font-bold">Favorites</h1>
+        <h1 className="text-3xl font-bold">My lists</h1>
         <Link href="/import" className="text-sm text-marquee underline">
           Import more
         </Link>
       </div>
+
+      <div className="mt-4 grid max-w-md grid-cols-2 gap-1 rounded-full border border-night-line p-1">
+        {TABS.map((t) => (
+          <Link
+            key={t.value}
+            href={href(t.value, type)}
+            className={`rounded-full py-1.5 text-center text-sm ${list === t.value ? "bg-night-raised text-paper" : "text-paper-muted hover:text-paper"}`}
+          >
+            {t.label} <span className="text-paper-faint">{countFor(t.value)}</span>
+          </Link>
+        ))}
+      </div>
+      <p className="mt-3 max-w-2xl text-sm text-paper-muted">{tab.hint}</p>
+
       <div className="mt-4 flex gap-2">
         {[
           { value: null, label: "All" },
           { value: "tv", label: "Shows" },
           { value: "movie", label: "Movies" },
         ].map((t) => (
-          <Link key={t.label} href={t.value ? `/favorites?type=${t.value}` : "/favorites"} className={`chip ${type === t.value ? "chip-on" : ""}`}>
+          <Link key={t.label} href={href(list, t.value)} className={`chip ${type === t.value ? "chip-on" : ""}`}>
             {t.label}
           </Link>
         ))}
@@ -47,23 +80,35 @@ export default async function FavoritesPage({ searchParams }: { searchParams: { 
 
       {favorites.length === 0 ? (
         <p className="mt-6 max-w-xl text-paper-muted">
-          Nothing here yet.{" "}
-          <Link href="/import" className="text-marquee underline">
-            Import your Netflix history or a list
-          </Link>
-          ,{" "}
-          <Link href="/welcome" className="text-marquee underline">
-            pick from popular titles
-          </Link>
-          , or tap the heart on any show or movie in{" "}
-          <Link href="/browse" className="text-marquee underline">
-            Browse
-          </Link>{" "}
-          or{" "}
-          <Link href="/search" className="text-marquee underline">
-            Search
-          </Link>
-          .
+          {list === "want" ? (
+            <>
+              Nothing here yet. Tap the bookmark on any show or movie in{" "}
+              <Link href="/browse" className="text-marquee underline">
+                Browse
+              </Link>{" "}
+              or{" "}
+              <Link href="/search" className="text-marquee underline">
+                Search
+              </Link>
+              , or{" "}
+              <Link href="/import" className="text-marquee underline">
+                type a list
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              Nothing here yet.{" "}
+              <Link href="/import" className="text-marquee underline">
+                Import your Netflix history or a list
+              </Link>
+              ,{" "}
+              <Link href="/welcome" className="text-marquee underline">
+                pick from popular titles
+              </Link>
+              , or tap the heart on anything you&apos;ve enjoyed.
+            </>
+          )}
         </p>
       ) : (
         <div className="mt-6">
@@ -92,7 +137,7 @@ export default async function FavoritesPage({ searchParams }: { searchParams: { 
                     genreIds: [],
                     popularity: 0,
                   }}
-                  favorite
+                  saved={list}
                   services={services}
                   note={note}
                 />

@@ -1,19 +1,20 @@
 import Link from "next/link";
 import { imageUrl, type Provider, type TitleSummary } from "@/lib/tmdb";
-import { FavoriteButton } from "@/components/FavoriteButton";
+import type { ListName } from "@/lib/favorites";
+import { SaveButtons } from "@/components/SaveButtons";
 import { ServiceLogos } from "@/components/ServiceLogos";
 
 export function TitleCard({
   title,
   services,
-  favorite,
+  saved,
   note,
   children,
   compact,
 }: {
   title: TitleSummary;
   services?: Provider[];
-  favorite?: boolean;
+  saved?: ListName | null; // which list it's on; leave out to hide the save buttons
   note?: string | null;
   children?: React.ReactNode;
   compact?: boolean;
@@ -28,15 +29,15 @@ export function TitleCard({
           <div className="grid aspect-[2/3] place-items-center p-3 text-center text-sm text-paper-muted">{title.title}</div>
         )}
       </Link>
-      {favorite !== undefined && (
+      {saved !== undefined && (
         <div className="absolute right-1.5 top-1.5">
-          <FavoriteButton
+          <SaveButtons
             tmdbId={title.id}
             mediaType={title.mediaType}
             title={title.title}
             posterPath={title.posterPath}
-            initial={favorite}
-            variant="icon"
+            initial={saved}
+            variant="icons"
           />
         </div>
       )}

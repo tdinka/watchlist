@@ -63,7 +63,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         {available.length > 0 ? (
           <TitleGrid>
             {available.map(({ title, services }) => (
-              <TitleCard key={`${title.mediaType}:${title.id}`} title={title} services={services} favorite={favKeys.has(`${title.mediaType}:${title.id}`)} />
+              <TitleCard key={`${title.mediaType}:${title.id}`} title={title} services={services} saved={favKeys.get(`${title.mediaType}:${title.id}`) ?? null} />
             ))}
           </TitleGrid>
         ) : (
@@ -74,10 +74,10 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       {showAll && elsewhere.length > 0 && (
         <section className="mt-10">
           <h2 className="mb-1 text-xl font-bold">Not on your services</h2>
-          <p className="mb-4 text-sm text-paper-muted">Favorite one and you&apos;ll hear when it arrives on a service you have.</p>
+          <p className="mb-4 text-sm text-paper-muted">Add one to Want to watch and you&apos;ll hear when it arrives on a service you have.</p>
           <TitleGrid>
             {elsewhere.map(({ title }) => (
-              <TitleCard key={`${title.mediaType}:${title.id}`} title={title} favorite={favKeys.has(`${title.mediaType}:${title.id}`)} />
+              <TitleCard key={`${title.mediaType}:${title.id}`} title={title} saved={favKeys.get(`${title.mediaType}:${title.id}`) ?? null} />
             ))}
           </TitleGrid>
         </section>
