@@ -31,11 +31,15 @@ export async function sendEmail(to: string, subject: string, html: string) {
   if (!res.ok) throw new Error(`Resend answered ${res.status}: ${await res.text()}`);
 }
 
-export function emailLayout(heading: string, bodyHtml: string) {
+export function emailLayout(heading: string, bodyHtml: string, alertsFooter = true) {
   return `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;color:#16181d">
   <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(heading)}</h1>
   ${bodyHtml}
-  <p style="font-size:12px;color:#6b7080;margin-top:28px">You're getting this because email alerts are on in
-  <a href="${appUrl("/settings")}" style="color:#6b7080">Watchlist settings</a>.</p>
+  ${
+    alertsFooter
+      ? `<p style="font-size:12px;color:#6b7080;margin-top:28px">You're getting this because email alerts are on in
+  <a href="${appUrl("/settings")}" style="color:#6b7080">Watchlist settings</a>.</p>`
+      : ""
+  }
 </div>`;
 }

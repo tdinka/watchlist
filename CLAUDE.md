@@ -7,9 +7,9 @@ Household app that pulls together what's on the streaming services they subscrib
 - Run GitHub/Railway setup directly with the signed-in `gh` and `railway` CLIs. Before any commit or push, say which files are included and the message. Never force-push.
 
 ## Stack (same as Family Recipe Box)
-- Next.js 14 (App Router, TypeScript) + Tailwind; Postgres + Prisma; NextAuth credentials, households with invite codes.
+- Next.js 14 (App Router, TypeScript) + Tailwind; Postgres + Prisma; NextAuth credentials provider used for passwordless sign-in: a 6-digit code emailed to the person (`src/lib/login-codes.ts`, `/api/auth/request-code`); households with invite codes. No passwords. Sign-up details ride on the code and the account is only created when the code is entered. Without `RESEND_API_KEY`, codes print in the dev server's terminal (never in production).
 - TMDB API for all title data (`src/lib/tmdb.ts`); credit TMDB and JustWatch wherever where-to-watch data shows (footer in `layout.tsx`).
-- Resend for email (`src/lib/email.ts`); optional, app works without it.
+- Resend for email (`src/lib/email.ts`): sign-in codes and alert emails. Required in production, since sign-in codes go by email.
 - Daily check: `src/lib/alerts.ts` `runChecks()`, called by `/api/cron/check` with `CRON_SECRET`.
 - Region is US (`WATCH_REGION`). Default services: Netflix, HBO Max, Prime Video, Apple TV+.
 
@@ -17,7 +17,7 @@ Household app that pulls together what's on the streaming services they subscrib
 - Live at https://watchlist-production-9926.up.railway.app. Repo: GitHub `tdinka/watchlist` (private). Pushing to `main` deploys automatically.
 - Services: `watchlist` (the app), `Postgres` (no public URL; tables are created by `npm start`), `daily-check` (curl image; cron `0 14 * * *` = 7am Pacific; POSTs to `/api/cron/check` with `CRON_SECRET`, which it references from the app's variables).
 - `railway environment edit --service-config` answered "No changes to apply" for deploy settings (CLI 5.63 and 5.71). The cron schedule and start command were set through Railway's GraphQL API (`serviceInstanceUpdate`) with the CLI's signed-in token; a Cloudflare 1010 error means the request needs a `user-agent` header.
-- Not set yet: `RESEND_API_KEY` / `EMAIL_FROM` (email alerts). Local dev has no database yet; the Railway one isn't reachable from outside.
+- Not set yet: `RESEND_API_KEY` / `EMAIL_FROM`. Sign-in on the live site depends on these. Local dev has no database yet; the Railway one isn't reachable from outside.
 
 ## Rules
 - Service matching goes through `serviceKey()` in `src/lib/services.ts` (TMDB lists "Netflix Standard with Ads", "HBO Max Amazon Channel" etc. separately). Change name rules there only.

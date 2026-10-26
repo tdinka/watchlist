@@ -11,6 +11,7 @@ arrives on one of your services, and get recommendations based on favorites.
   services don't let outside apps see your accounts, so the app doesn't know
   your watch history: favorites are how it learns your taste.
 - Our own data (households, services, favorites, alerts) lives in Postgres.
+- No passwords: to sign in or sign up you get a 6-digit code by email (sent through Resend). On your computer without Resend set up, the code prints in the terminal running `npm run dev`.
 - Once a day a Railway cron job calls `/api/cron/check`, which looks for new
   episodes and new arrivals, records alerts, and emails a summary through Resend.
 

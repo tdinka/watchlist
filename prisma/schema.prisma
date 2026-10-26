@@ -27,7 +27,9 @@ model Household {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String
+  // No longer used: sign-in is by a code emailed to `email`. Kept (optional)
+  // because dropping a column with data in it would stop `prisma db push`.
+  passwordHash String?
   name         String
   emailAlerts  Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -92,6 +94,22 @@ model Alert {
 
   @@unique([userId, key])
   @@index([userId, readAt])
+}
+
+// One-time sign-in codes sent by email. Only a hash of the code is stored.
+// A code for someone signing up carries their sign-up details in `signup`;
+// the account is only created once they enter the code, so nobody can claim
+// an email address they can't read.
+model LoginCode {
+  id        String   @id @default(cuid())
+  email     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  signup    Json?
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
 }
 
 // Titles someone marked "Not for me" so recommendations stop showing them.

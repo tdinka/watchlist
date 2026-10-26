@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { CodeStep, requestCode } from "@/components/CodeStep";
 
 export default function RegisterPage() {
   const [mode, setMode] = useState<"create" | "join">("create");
+  const [request, setRequest] = useState<object | null>(null); // what was sent, for "Send a new code"
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -14,19 +16,39 @@ export default function RegisterPage() {
     setBusy(true);
     setError(null);
     const form = Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...form, mode }),
-    });
-    if (!res.ok) {
-      setError((await res.json().catch(() => null))?.error ?? "Something went wrong.");
-      setBusy(false);
-      return;
+    const body = {
+      email: form.email,
+      signup: {
+        name: form.name,
+        mode,
+        householdName: mode === "create" ? form.householdName : undefined,
+        inviteCode: mode === "join" ? form.inviteCode : undefined,
+      },
+    };
+    const problem = await requestCode(body);
+    setBusy(false);
+    if (problem) setError(problem);
+    else {
+      setEmail(form.email);
+      setRequest(body);
     }
-    await signIn("credentials", { email: form.email, password: form.password, redirect: false });
-    // New households start in Settings to check their services.
-    window.location.href = mode === "create" ? "/settings?welcome=1" : "/";
+  }
+
+  if (request) {
+    return (
+      <div className="mx-auto mt-12 max-w-sm">
+        <h1 className="text-3xl font-bold">Check your email</h1>
+        <div className="mt-2">
+          <CodeStep
+            email={email}
+            resend={() => requestCode(request)}
+            onBack={() => setRequest(null)}
+            // New households start in Settings to check their services.
+            redirectTo={mode === "create" ? "/settings?welcome=1" : "/"}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -46,16 +68,7 @@ export default function RegisterPage() {
       </div>
       <form onSubmit={onSubmit} className="mt-6 space-y-3">
         <input name="name" required placeholder="Your first name" className="input" autoComplete="given-name" />
-        <input name="email" type="email" required placeholder="Email" className="input" autoComplete="email" />
-        <input
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          placeholder="Password (8+ characters)"
-          className="input"
-          autoComplete="new-password"
-        />
+        <input name="email" type="email" required placeholder="Email" className="input" autoComplete="email" defaultValue={email} />
         {mode === "create" ? (
           <input name="householdName" required placeholder="Household name, e.g. The Dinkas" className="input" />
         ) : (
@@ -63,8 +76,9 @@ export default function RegisterPage() {
         )}
         {error && <p className="text-sm text-flare">{error}</p>}
         <button className="btn-primary w-full" disabled={busy}>
-          {busy ? "Creating…" : "Create account"}
+          {busy ? "Sending…" : "Email me a code"}
         </button>
+        <p className="text-xs text-paper-faint">No password needed. Each time you sign in, we email you a code.</p>
       </form>
       <p className="mt-6 text-sm text-paper-muted">
         Already have an account?{" "}
