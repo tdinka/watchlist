@@ -83,7 +83,7 @@ model Alert {
   id         String    @id @default(cuid())
   // Stops the same news being sent twice, e.g. "tv:1399:s8e1".
   key        String
-  kind       String // "new_season" | "new_episode" | "now_streaming"
+  kind       String // "new_season" | "new_episode" | "now_streaming" | "leaving_soon"
   tmdbId     Int
   mediaType  String
   title      String
@@ -126,4 +126,25 @@ model Dismissed {
   userId String
 
   @@id([userId, mediaType, tmdbId])
+}
+
+// Titles leaving a streaming service in the next month, from the Streaming
+// Availability API's "expiring" feed (movieofthenight.com). The daily check
+// refreshes it. One row per title per service.
+model Leaving {
+  mediaType String
+  tmdbId    Int
+  service   String // as the feed names it, e.g. "Netflix"
+  leavesOn  String // last day to watch, e.g. "2026-11-12"
+  checkedAt DateTime @default(now())
+
+  @@id([mediaType, tmdbId, service])
+  @@index([leavesOn])
+}
+
+// Small bits of app-wide state, e.g. when the leaving-soon feed last ran.
+model AppState {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

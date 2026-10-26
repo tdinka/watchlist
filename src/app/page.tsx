@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { favoriteKeys } from "@/lib/favorites";
+import { leavingFor } from "@/lib/leaving";
 import { getHouseholdServices } from "@/lib/services";
 import { discover, hasTmdbKey, imageUrl, type Provider, type TitleSummary } from "@/lib/tmdb";
 import { TitleCard, TitleRow } from "@/components/TitleCard";
@@ -46,6 +47,10 @@ export default async function HomePage() {
       take: 20,
     }),
   ]);
+  // Titles about to leave go first.
+  const readyLeaving = await leavingFor(ready, services);
+  const leavesOn = (f: (typeof ready)[number]) => readyLeaving.get(`${f.mediaType}:${f.tmdbId}`)?.leavesOn ?? "9999";
+  ready.sort((a, b) => leavesOn(a).localeCompare(leavesOn(b)));
   const states = await db.showState.findMany({ where: { tmdbId: { in: shows.map((s) => s.tmdbId) } } });
   const today = new Date().toISOString().slice(0, 10);
   const upcoming = states
@@ -114,6 +119,7 @@ export default async function HomePage() {
               compact
               saved={favKeys.get(`${f.mediaType}:${f.tmdbId}`) ?? null}
               services={services.filter((p) => f.availableOn!.split(", ").includes(p.name))}
+              leaving={readyLeaving.get(`${f.mediaType}:${f.tmdbId}`)}
               title={{
                 id: f.tmdbId,
                 mediaType: f.mediaType as "tv" | "movie",

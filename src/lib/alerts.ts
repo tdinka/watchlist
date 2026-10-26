@@ -1,8 +1,12 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { emailConfigured, emailLayout, escapeHtml, sendEmail, appUrl } from "@/lib/email";
-import { getHouseholdServices, matchServices } from "@/lib/services";
+import { daysLeft, formatLeavesOn, refreshLeaving } from "@/lib/leaving";
+import { getHouseholdServices, matchServices, serviceKey } from "@/lib/services";
 import { getAvailability, imageUrl, mapLimit, tmdb, type MediaType, type Provider } from "@/lib/tmdb";
+
+// How many days ahead "leaving soon" alerts are sent.
+const LEAVING_ALERT_DAYS = 7;
 
 type Episode = { season_number: number; episode_number: number; air_date: string | null; name: string };
 
@@ -57,8 +61,19 @@ function episodeMessage(name: string, prev: { lastSeason: number | null; lastEpi
 // The daily check. For every favorited title it asks TMDB:
 //  - shows: has a newer episode come out since last time?
 //  - anything: has it just arrived on one of the household's services?
-// and records an alert for each person who favorited it. Then emails them.
+// and, from the leaving-soon feed, whether a Want to watch title is about to
+// leave the only one of the household's services it's on. It records an
+// alert for each person who saved it, then emails them.
 export async function runChecks(opts: { householdId?: string } = {}) {
+  let leaving: Awaited<ReturnType<typeof refreshLeaving>>;
+  try {
+    leaving = await refreshLeaving();
+  } catch (err) {
+    leaving = { pages: 0, titles: 0, note: `Leaving-soon feed failed: ${(err as Error).message}` };
+  }
+  const leavingSoon = new Date(Date.now() + LEAVING_ALERT_DAYS * 86400 * 1000).toISOString().slice(0, 10);
+  const leavingRows = await db.leaving.findMany({ where: { leavesOn: { gte: new Date().toISOString().slice(0, 10), lte: leavingSoon } } });
+
   const favorites = await db.favorite.findMany({
     where: opts.householdId ? { user: { householdId: opts.householdId } } : {},
     include: { user: { select: { householdId: true } } },
@@ -111,6 +126,27 @@ export async function runChecks(opts: { householdId?: string } = {}) {
                 : `${fav.title} is now streaming on ${joinNames(names)}`,
           });
         }
+        // Leaving soon: only for Want to watch, and only if it isn't staying
+        // on another of the household's services.
+        const goingFrom = leavingRows.filter(
+          (l) => l.mediaType === mediaType && l.tmdbId === tmdbId && names.some((n) => serviceKey(n) === serviceKey(l.service)),
+        );
+        const staying = names.filter((n) => !goingFrom.some((l) => serviceKey(l.service) === serviceKey(n)));
+        if (fav.list === "want" && goingFrom.length > 0 && staying.length === 0) {
+          const last = goingFrom.reduce((a, b) => (a.leavesOn > b.leavesOn ? a : b));
+          alerts.push({
+            userId: fav.userId,
+            key: `${mediaType}:${tmdbId}:leaving:${last.leavesOn}`,
+            kind: "leaving_soon",
+            tmdbId,
+            mediaType,
+            title: fav.title,
+            posterPath: fav.posterPath,
+            message: `${fav.title}, from your Want to watch list, leaves ${joinNames(goingFrom.map((l) => l.service))} ${daysLeft(
+              last.leavesOn,
+            )} (last day ${formatLeavesOn(last.leavesOn, { weekday: "short", month: "short", day: "numeric" })})`,
+          });
+        }
         if (fav.availableOn !== joined) {
           await db.favorite.update({ where: { id: fav.id }, data: { availableOn: joined } });
         }
@@ -155,7 +191,14 @@ export async function runChecks(opts: { householdId?: string } = {}) {
   });
 
   const email = await sendEmailDigests(opts.householdId);
-  return { titlesChecked: byTitle.size, alertsCreated, emailsSent: email.sent, emailNote: email.note, errors };
+  return {
+    titlesChecked: byTitle.size,
+    alertsCreated,
+    emailsSent: email.sent,
+    emailNote: email.note,
+    leaving: { lookups: leaving.pages, titles: leaving.titles, note: leaving.note },
+    errors,
+  };
 }
 
 // One email per person listing their alerts that haven't been emailed yet.

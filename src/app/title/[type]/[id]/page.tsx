@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { favoriteKeys } from "@/lib/favorites";
+import { daysLeft, formatLeavesOn, leavingFor } from "@/lib/leaving";
 import { getHouseholdServices, matchServices, servicesForTitles } from "@/lib/services";
 import { getTrailer, hasTmdbKey, imageUrl, isMediaType, parseAvailability, summaries, tmdb, type Provider } from "@/lib/tmdb";
 import { SaveButtons } from "@/components/SaveButtons";
@@ -68,6 +69,7 @@ export default async function TitlePage({ params }: { params: { type: string; id
   const recs = summaries(raw.recommendations?.results, mediaType).slice(0, 18);
   const recServices = await servicesForTitles(recs, mine);
   const trailer = await getTrailer(mediaType, id, { videos: raw.videos ?? { results: [] }, latestSeason: raw.number_of_seasons }).catch(() => null);
+  const leaving = (await leavingFor([{ mediaType, tmdbId: id }], onMine)).get(`${mediaType}:${id}`);
   const state = mediaType === "tv" && isFavorite ? await db.showState.findUnique({ where: { tmdbId: id } }) : null;
 
   const facts = [
@@ -114,6 +116,12 @@ export default async function TitlePage({ params }: { params: { type: string; id
                 <span className="text-paper-muted">
                   {isFavorite ? "You'll hear when it arrives." : "Add it to Want to watch to hear when it arrives."}
                 </span>
+              </p>
+            )}
+            {leaving && (
+              <p className="rounded-lg bg-ebb-soft px-3 py-2 text-sm text-ebb">
+                Leaves {leaving.service} {daysLeft(leaving.leavesOn)}. Last day to watch:{" "}
+                {formatLeavesOn(leaving.leavesOn, { weekday: "long", month: "long", day: "numeric" })}.
               </p>
             )}
             <ProviderList label="Also streaming on" providers={otherStreams} />

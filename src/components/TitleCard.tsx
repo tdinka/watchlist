@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { imageUrl, type Provider, type TitleSummary } from "@/lib/tmdb";
 import type { Saved } from "@/lib/favorites";
+import { formatLeavesOn, type LeavingDate } from "@/lib/leaving";
 import { SaveButtons } from "@/components/SaveButtons";
 import { ServiceLogos } from "@/components/ServiceLogos";
 import { TrailerIcon } from "@/components/Trailer";
@@ -12,6 +13,7 @@ export function TitleCard({
   note,
   children,
   compact,
+  leaving,
 }: {
   title: TitleSummary;
   services?: Provider[];
@@ -19,6 +21,7 @@ export function TitleCard({
   note?: string | null;
   children?: React.ReactNode;
   compact?: boolean;
+  leaving?: LeavingDate | null; // soonest date it leaves one of your services
 }) {
   const poster = imageUrl(title.posterPath, "w342");
   return (
@@ -55,6 +58,11 @@ export function TitleCard({
           {title.rating && <span>· ★ {title.rating}</span>}
         </div>
         {services && services.length > 0 && <ServiceLogos services={services} className="mt-1.5" />}
+        {leaving && (
+          <p className="mt-1.5 inline-block rounded bg-ebb-soft px-1.5 py-0.5 text-xs font-medium text-ebb">
+            Leaves {leaving.service} {formatLeavesOn(leaving.leavesOn)}
+          </p>
+        )}
         {note && <p className="mt-1 line-clamp-2 text-xs text-paper-muted">{note}</p>}
         {children}
       </div>

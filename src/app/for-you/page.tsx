@@ -2,6 +2,7 @@ import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { favoriteKeys } from "@/lib/favorites";
+import { leavingFor } from "@/lib/leaving";
 import { recommendFor } from "@/lib/recommendations";
 import { getHouseholdServices } from "@/lib/services";
 import { hasTmdbKey } from "@/lib/tmdb";
@@ -24,7 +25,11 @@ export default async function ForYouPage({ searchParams }: { searchParams: { rou
   } catch {
     return <TmdbProblem />;
   }
-  const [favKeys, favCount] = await Promise.all([favoriteKeys(user.id), db.favorite.count({ where: { userId: user.id, list: "loved" } })]);
+  const [favKeys, favCount, leaving] = await Promise.all([
+    favoriteKeys(user.id),
+    db.favorite.count({ where: { userId: user.id, list: "loved" } }),
+    leavingFor(recs.titles.map((t) => ({ mediaType: t.mediaType, tmdbId: t.id })), mine),
+  ]);
 
   return (
     <div>
@@ -51,6 +56,7 @@ export default async function ForYouPage({ searchParams }: { searchParams: { rou
               key={`${t.mediaType}:${t.id}`}
               title={t}
               services={t.services}
+              leaving={leaving.get(`${t.mediaType}:${t.id}`)}
               saved={favKeys.get(`${t.mediaType}:${t.id}`) ?? null}
               note={t.because ? `Because you liked ${t.because}` : null}
             >

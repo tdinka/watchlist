@@ -2,7 +2,9 @@ import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { favoriteKeys, isListName, type ListName } from "@/lib/favorites";
+import { daysLeft, formatLeavesOn, leavingFor } from "@/lib/leaving";
 import { getHouseholdServices } from "@/lib/services";
+import { imageUrl } from "@/lib/tmdb";
 import { TitleCard, TitleGrid } from "@/components/TitleCard";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +36,10 @@ export default async function MyListsPage({ searchParams }: { searchParams: { li
     getHouseholdServices(user.householdId),
     favoriteKeys(user.id),
   ]);
+  const leaving = await leavingFor(favorites, mine);
+  const leavingSoon = favorites
+    .filter((f) => leaving.has(`${f.mediaType}:${f.tmdbId}`))
+    .sort((a, b) => leaving.get(`${a.mediaType}:${a.tmdbId}`)!.leavesOn.localeCompare(leaving.get(`${b.mediaType}:${b.tmdbId}`)!.leavesOn));
   const countFor = (l: ListName) => counts.find((c) => c.list === l)?._count ?? 0;
   const states = new Map(
     (await db.showState.findMany({ where: { tmdbId: { in: favorites.filter((f) => f.mediaType === "tv").map((f) => f.tmdbId) } } })).map((s) => [
@@ -78,6 +84,34 @@ export default async function MyListsPage({ searchParams }: { searchParams: { li
           </Link>
         ))}
       </div>
+
+      {list === "want" && leavingSoon.length > 0 && (
+        <section className="card mt-6 border-ebb/40 p-4">
+          <h2 className="text-lg font-bold">Leaving soon</h2>
+          <p className="mt-0.5 text-sm text-paper-muted">Watch these first: they&apos;re about to leave your services.</p>
+          <ul className="mt-3 divide-y divide-night-line">
+            {leavingSoon.map((f) => {
+              const l = leaving.get(`${f.mediaType}:${f.tmdbId}`)!;
+              return (
+                <li key={f.id}>
+                  <Link href={`/title/${f.mediaType}/${f.tmdbId}`} className="flex items-center gap-3 py-2 hover:underline">
+                    {f.posterPath ? (
+                      <img src={imageUrl(f.posterPath, "w92")!} alt="" className="h-12 w-8 shrink-0 rounded object-cover" />
+                    ) : (
+                      <div className="h-12 w-8 shrink-0 rounded bg-night-raised" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate font-medium">{f.title}</span>
+                    <span className="shrink-0 text-right text-sm text-ebb">
+                      Leaves {l.service} {daysLeft(l.leavesOn)}
+                      <span className="block text-xs text-paper-faint">last day {formatLeavesOn(l.leavesOn, { weekday: "short", month: "short", day: "numeric" })}</span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {favorites.length === 0 ? (
         <p className="mt-6 max-w-xl text-paper-muted">
@@ -140,6 +174,7 @@ export default async function MyListsPage({ searchParams }: { searchParams: { li
                   }}
                   saved={favKeys.get(`${f.mediaType}:${f.tmdbId}`) ?? null}
                   services={services}
+                  leaving={leaving.get(`${f.mediaType}:${f.tmdbId}`)}
                   note={note}
                 />
               );
