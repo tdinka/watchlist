@@ -20,6 +20,7 @@ export async function POST(req: Request) {
   try {
     if (changed) await fetchFeed(username); // checks the account exists before saving it
   } catch (err) {
+    console.error(`Letterboxd connect for ${username} failed:`, (err as Error).message);
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
   const user = changed
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
     const added = await syncLetterboxd(user);
     return NextResponse.json({ username, added });
   } catch (err) {
+    console.error(`Letterboxd sync for ${username} failed:`, err);
     return NextResponse.json({ error: (err as Error).message }, { status: 502 });
   }
 }

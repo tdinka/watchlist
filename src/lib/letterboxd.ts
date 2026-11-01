@@ -98,8 +98,17 @@ export async function fetchFeed(username: string) {
     signal: AbortSignal.timeout(20_000),
   });
   if (res.status === 404) throw new Error(`There's no Letterboxd member called ${username}.`);
-  if (!res.ok) throw new Error(`Letterboxd answered ${res.status}.`);
-  return parseFeed(await res.text());
+  const text = await res.text();
+  if (!res.ok) {
+    console.error(
+      `Letterboxd feed for ${username} answered ${res.status} (server ${res.headers.get("server")}, cf-mitigated ${res.headers.get("cf-mitigated")}):`,
+      text.slice(0, 300).replace(/\s+/g, " "),
+    );
+    throw new Error(`Letterboxd answered ${res.status}.`);
+  }
+  const entries = parseFeed(text);
+  console.log(`Letterboxd feed for ${username}: ${entries.length} film entries (${text.length} bytes).`);
+  return entries;
 }
 
 // Brings in diary entries newer than the last sync. Entries already brought
