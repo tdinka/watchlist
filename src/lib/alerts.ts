@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { emailConfigured, emailLayout, escapeHtml, sendEmail, appUrl } from "@/lib/email";
+import { automaticLevel, isAlertLevel, type AlertLevel } from "@/lib/alert-levels";
 import { daysLeft, formatLeavesOn, refreshLeaving } from "@/lib/leaving";
 import { getHouseholdServices, matchServices, serviceKey } from "@/lib/services";
 import { getAvailability, imageUrl, mapLimit, tmdb, type MediaType, type Provider } from "@/lib/tmdb";
@@ -34,32 +35,64 @@ async function saveShowState(tmdbId: number, show: any) {
     nextEpisode: next?.episode_number ?? null,
     nextAirDate: next?.air_date ?? null,
     status: show.status ?? null,
+    type: show.type ?? null,
     checkedAt: new Date(),
   };
   await db.showState.upsert({ where: { tmdbId }, create: { tmdbId, ...data }, update: data });
 }
 
-function episodeMessage(name: string, prev: { lastSeason: number | null; lastEpisode: number | null }, last: Episode) {
+// New episodes of a show go into one alert per person that grows ("4 new
+// episodes of ...") until they've seen it, rather than one alert each.
+async function recordEpisodeNews(
+  fav: { userId: string; posterPath: string | null },
+  show: { id: number; name: string; poster_path?: string | null },
+  last: Episode,
+  isNewSeason: boolean,
+  count: number,
+  services: string[],
+) {
+  const open = await db.alert.findFirst({
+    where: { userId: fav.userId, mediaType: "tv", tmdbId: show.id, readAt: null, kind: { in: ["new_season", "new_episode"] } },
+    orderBy: { createdAt: "desc" },
+  });
   const s = last.season_number;
   const e = last.episode_number;
-  if (prev.lastSeason === null || s > prev.lastSeason) {
-    return {
-      kind: "new_season" as const,
-      text: e > 1 ? `Season ${s} of ${name} is here (${e} episodes so far)` : `Season ${s} of ${name} has started`,
-    };
-  }
-  const count = e - (prev.lastEpisode ?? 0);
-  return {
-    kind: "new_episode" as const,
-    text:
-      count > 1
-        ? `${count} new episodes of ${name}, up to S${s} E${e}`
-        : `New episode of ${name}: S${s} E${e}${last.name ? ` "${last.name}"` : ""}`,
+  const sameSeason = open?.key.startsWith(`tv:${show.id}:s${s}e`);
+  const kind = isNewSeason || (open?.kind === "new_season" && sameSeason) ? "new_season" : "new_episode";
+  const episodes = kind === "new_season" ? e : (open?.kind === "new_episode" && sameSeason ? open.episodes ?? 1 : 0) + count;
+  const text =
+    kind === "new_season"
+      ? e > 1
+        ? `Season ${s} of ${show.name}: ${e} episodes out so far`
+        : `Season ${s} of ${show.name} has started`
+      : episodes > 1
+        ? `${episodes} new episodes of ${show.name}, latest S${s} E${e}`
+        : `New episode of ${show.name}: S${s} E${e}${last.name && !/^Episode \d+$/.test(last.name) ? ` "${last.name}"` : ""}`;
+  const data = {
+    key: `tv:${show.id}:s${s}e${e}`,
+    kind,
+    episodes,
+    title: show.name,
+    posterPath: show.poster_path ?? fav.posterPath,
+    message: services.length ? `${text}, on ${joinNames(services)}` : `${text} (not on your services yet)`,
   };
+  try {
+    if (open) {
+      // Moves to the top again and goes in the next email with the new count.
+      await db.alert.update({ where: { id: open.id }, data: { ...data, createdAt: new Date(), emailedAt: null } });
+    } else {
+      await db.alert.create({ data: { ...data, userId: fav.userId, tmdbId: show.id, mediaType: "tv" } });
+    }
+    return 1;
+  } catch {
+    return 0; // already recorded (same key)
+  }
 }
 
 // The daily check. For every favorited title it asks TMDB:
-//  - shows: has a newer episode come out since last time?
+//  - shows: has a newer episode come out since last time? (Only episodes on
+//    the household's services, grouped per show, and only new seasons for
+//    talk/news shows or anyone who chose that on the show's page.)
 //  - anything: has it just arrived on one of the household's services?
 // and, from the leaving-soon feed, whether a Want to watch title is about to
 // leave the only one of the household's services it's on. It records an
@@ -78,6 +111,13 @@ export async function runChecks(opts: { householdId?: string } = {}) {
     where: opts.householdId ? { user: { householdId: opts.householdId } } : {},
     include: { user: { select: { householdId: true } } },
   });
+
+  const settings = new Map(
+    (await db.showAlertSetting.findMany({ where: { userId: { in: Array.from(new Set(favorites.map((f) => f.userId))) } } })).map((a) => [
+      `${a.userId}:${a.tmdbId}`,
+      a.level,
+    ]),
+  );
 
   const servicesCache = new Map<string, Promise<Provider[]>>();
   const servicesFor = (householdId: string) => {
@@ -103,6 +143,12 @@ export async function runChecks(opts: { householdId?: string } = {}) {
     const mediaType = favs[0].mediaType as MediaType;
     try {
       const availability = await getAvailability(mediaType, tmdbId, { fresh: true });
+      const show = mediaType === "tv" ? await tmdb(`/tv/${tmdbId}`, {}, { fresh: true }) : null;
+      const levelFor = (userId: string): AlertLevel => {
+        if (!show) return "episodes";
+        const chosen = settings.get(`${userId}:${tmdbId}`);
+        return isAlertLevel(chosen) ? chosen : automaticLevel(show.type);
+      };
       const alerts: Prisma.AlertCreateManyInput[] = [];
       const onServices = new Map<string, string[]>();
 
@@ -110,6 +156,10 @@ export async function runChecks(opts: { householdId?: string } = {}) {
         const names = matchServices(availability.stream, await servicesFor(fav.user.householdId)).map((p) => p.name);
         onServices.set(fav.id, names);
         const joined = names.join(", ");
+        if (levelFor(fav.userId) === "off") {
+          if (fav.availableOn !== joined) await db.favorite.update({ where: { id: fav.id }, data: { availableOn: joined } });
+          continue;
+        }
         // Only "arrived" when we'd checked before and it wasn't on any of them.
         if (fav.availableOn === "" && joined) {
           alerts.push({
@@ -152,8 +202,7 @@ export async function runChecks(opts: { householdId?: string } = {}) {
         }
       }
 
-      if (mediaType === "tv") {
-        const show = await tmdb(`/tv/${tmdbId}`, {}, { fresh: true });
+      if (show) {
         const prev = await db.showState.findUnique({ where: { tmdbId } });
         const last: Episode | null = show.last_episode_to_air ?? null;
         const isNewer =
@@ -163,19 +212,18 @@ export async function runChecks(opts: { householdId?: string } = {}) {
             last.season_number > prev.lastSeason ||
             (last.season_number === prev.lastSeason && last.episode_number > (prev.lastEpisode ?? 0)));
         if (prev && last && isNewer) {
-          const { kind, text } = episodeMessage(show.name, prev, last);
+          const isNewSeason = prev.lastSeason === null || last.season_number > prev.lastSeason;
+          const count = isNewSeason ? last.episode_number : last.episode_number - (prev.lastEpisode ?? 0);
+          const told = new Set<string>(); // a title on both lists is one person
           for (const fav of favs) {
+            if (told.has(fav.userId)) continue;
+            told.add(fav.userId);
+            const level = levelFor(fav.userId);
             const names = onServices.get(fav.id) ?? [];
-            alerts.push({
-              userId: fav.userId,
-              key: `tv:${tmdbId}:s${last.season_number}e${last.episode_number}`,
-              kind,
-              tmdbId,
-              mediaType,
-              title: show.name,
-              posterPath: show.poster_path ?? fav.posterPath,
-              message: names.length ? `${text}, on ${joinNames(names)}` : `${text} (not on your services yet)`,
-            });
+            // Episodes only matter if you can watch them; seasons are news either way.
+            if (level === "off" || (!isNewSeason && (level === "seasons" || names.length === 0))) continue;
+            const added = await recordEpisodeNews(fav, { ...show, id: tmdbId }, last, isNewSeason, count, names);
+            alertsCreated += added;
           }
         }
         await saveShowState(tmdbId, show);

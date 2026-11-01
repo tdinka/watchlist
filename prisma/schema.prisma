@@ -37,25 +37,26 @@ model User {
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   householdId String
 
-  favorites Favorite[]
-  alerts    Alert[]
-  dismissed Dismissed[]
+  favorites  Favorite[]
+  alerts     Alert[]
+  dismissed  Dismissed[]
+  showAlerts ShowAlertSetting[]
 }
 
 model Favorite {
-  id         String   @id @default(cuid())
-  tmdbId     Int
-  mediaType  String // "tv" | "movie"
-  title      String
-  posterPath String?
+  id          String   @id @default(cuid())
+  tmdbId      Int
+  mediaType   String // "tv" | "movie"
+  title       String
+  posterPath  String?
   // Which list this entry is for: "loved" (watched and liked; drives
   // recommendations) or "want" (want to watch). A title on both lists has
   // one entry for each.
-  list       String   @default("loved")
+  list        String   @default("loved")
   // The household's services this was streaming on at the last check, e.g.
   // "Netflix, HBO Max". "" = on none of them. Null = not checked yet.
   availableOn String?
-  createdAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
@@ -76,6 +77,9 @@ model ShowState {
   nextEpisode Int?
   nextAirDate String?
   status      String?
+  // TMDB's kind of show, e.g. "Scripted", "Talk Show", "News". Talk and news
+  // shows air almost daily, so by default they only alert for new seasons.
+  type        String?
   checkedAt   DateTime @default(now())
 }
 
@@ -84,6 +88,9 @@ model Alert {
   // Stops the same news being sent twice, e.g. "tv:1399:s8e1".
   key        String
   kind       String // "new_season" | "new_episode" | "now_streaming" | "leaving_soon"
+  // For episode alerts: how many new episodes this one alert covers. Unseen
+  // episode news for a show is kept in one alert that grows, not one each.
+  episodes   Int?
   tmdbId     Int
   mediaType  String
   title      String
@@ -147,4 +154,16 @@ model AppState {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+// Someone's choice of how much to hear about one show. No row = automatic:
+// every episode, except talk and news shows, which get new seasons only.
+model ShowAlertSetting {
+  tmdbId Int
+  level  String // "episodes" | "seasons" | "off"
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@id([userId, tmdbId])
 }

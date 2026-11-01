@@ -41,6 +41,8 @@ export async function tmdb<T = any>(
 
   const res = await fetch(url, {
     headers,
+    // A request that hangs would otherwise hold up the whole page.
+    signal: AbortSignal.timeout(20_000),
     ...(opts.fresh ? { cache: "no-store" as const } : { next: { revalidate: opts.revalidate ?? 3600 } }),
   });
   if (!res.ok) throw new Error(`TMDB answered ${res.status} for ${path}`);

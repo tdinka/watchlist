@@ -60,7 +60,7 @@ export function Nav({ unread }: { unread: number }) {
               aria-label="Search"
             />
           </form>
-          <Link href="/" className="relative ml-auto text-paper-muted hover:text-paper md:ml-0" aria-label={`${unread} new alerts`}>
+          <Link href="/alerts" className="relative ml-auto text-paper-muted hover:text-paper md:ml-0" aria-label={`Alerts, ${unread} new`}>
             <Icon d="M6 8a6 6 0 1112 0c0 7 3 8 3 8H3s3-1 3-8M10 20a2 2 0 004 0" />
             {unread > 0 && (
               <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-flare px-1 text-[10px] font-bold text-night">

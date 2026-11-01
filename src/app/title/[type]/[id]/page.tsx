@@ -10,6 +10,8 @@ import { ServiceLogo } from "@/components/ServiceLogos";
 import { TitleCard, TitleRow } from "@/components/TitleCard";
 import { TmdbProblem } from "@/components/Notice";
 import { TrailerButton } from "@/components/Trailer";
+import { AlertSetting } from "@/components/AlertSetting";
+import { automaticLevel, isAlertLevel } from "@/lib/alert-levels";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +72,8 @@ export default async function TitlePage({ params }: { params: { type: string; id
   const recServices = await servicesForTitles(recs, mine);
   const trailer = await getTrailer(mediaType, id, { videos: raw.videos ?? { results: [] }, latestSeason: raw.number_of_seasons }).catch(() => null);
   const leaving = (await leavingFor([{ mediaType, tmdbId: id }], onMine)).get(`${mediaType}:${id}`);
+  const alertSetting =
+    mediaType === "tv" && isFavorite ? await db.showAlertSetting.findUnique({ where: { userId_tmdbId: { userId: user.id, tmdbId: id } } }) : null;
   const state = mediaType === "tv" && isFavorite ? await db.showState.findUnique({ where: { tmdbId: id } }) : null;
 
   const facts = [
@@ -163,6 +167,15 @@ export default async function TitlePage({ params }: { params: { type: string; id
                   </div>
                 )
               )}
+            </div>
+          )}
+          {mediaType === "tv" && isFavorite && (
+            <div className="card mt-4 p-4">
+              <AlertSetting
+                tmdbId={id}
+                initial={isAlertLevel(alertSetting?.level) ? alertSetting.level : null}
+                automatic={automaticLevel(raw.type)}
+              />
             </div>
           )}
           {state && <p className="mt-2 text-xs text-paper-faint">Last checked for new episodes {state.checkedAt.toLocaleDateString("en-US")}.</p>}

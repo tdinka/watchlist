@@ -4,12 +4,16 @@ import { db } from "@/lib/db";
 import { favoriteKeys } from "@/lib/favorites";
 import { leavingFor } from "@/lib/leaving";
 import { getHouseholdServices } from "@/lib/services";
-import { discover, hasTmdbKey, imageUrl, type Provider, type TitleSummary } from "@/lib/tmdb";
+import { discover, hasTmdbKey, type Provider, type TitleSummary } from "@/lib/tmdb";
 import { TitleCard, TitleRow } from "@/components/TitleCard";
 import { NoServices, TmdbProblem } from "@/components/Notice";
 import { ActionButton } from "@/components/ActionButton";
+import { AlertList } from "@/components/AlertList";
 
 export const dynamic = "force-dynamic";
+
+// Home shows only unseen alerts, and only this many; the rest are on /alerts.
+const HOME_ALERTS = 3;
 
 function interleave(a: TitleSummary[], b: TitleSummary[]) {
   return a.flatMap((t, i) => (b[i] ? [t, b[i]] : [t]));
@@ -36,7 +40,7 @@ async function recentOnServices(services: Provider[]) {
 export default async function HomePage() {
   const user = await currentUser();
   const [alerts, services, favKeys, shows, ready] = await Promise.all([
-    db.alert.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 12 }),
+    db.alert.findMany({ where: { userId: user.id, readAt: null }, orderBy: { createdAt: "desc" } }),
     getHouseholdServices(user.householdId),
     favoriteKeys(user.id),
     db.favorite.findMany({ where: { userId: user.id, mediaType: "tv" }, orderBy: { createdAt: "desc" } }),
@@ -57,7 +61,7 @@ export default async function HomePage() {
     .filter((s) => s.nextAirDate && s.nextAirDate >= today)
     .sort((a, b) => a.nextAirDate!.localeCompare(b.nextAirDate!))
     .slice(0, 6);
-  const unread = alerts.filter((a) => !a.readAt);
+  const unread = alerts;
 
   let rows: { heading: string; href: string; titles: TitleSummary[]; service?: Provider }[] = [];
   let tmdbFailed = !hasTmdbKey();
@@ -77,37 +81,24 @@ export default async function HomePage() {
     <div>
       <h1 className="text-3xl font-bold">Hi {user.name}</h1>
 
-      {alerts.length > 0 && (
+      {unread.length > 0 && (
         <section className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-xl font-bold">
-              New for you{" "}
-              {unread.length > 0 && <span className="ml-1 rounded-full bg-flare px-2 py-0.5 align-middle text-xs text-night">{unread.length}</span>}
+              New for you <span className="ml-1 rounded-full bg-flare px-2 py-0.5 align-middle text-xs text-night">{unread.length}</span>
             </h2>
-            {unread.length > 0 && (
-              <ActionButton url="/api/alerts" className="text-sm text-paper-muted hover:text-paper">
+            <div className="flex items-center gap-4 text-sm">
+              {unread.length > HOME_ALERTS && (
+                <Link href="/alerts" className="text-paper-muted hover:text-paper">
+                  See all {unread.length} →
+                </Link>
+              )}
+              <ActionButton url="/api/alerts" className="text-paper-muted hover:text-paper">
                 Mark all as seen
               </ActionButton>
-            )}
+            </div>
           </div>
-          <ul className="card divide-y divide-night-line">
-            {alerts.map((a) => (
-              <li key={a.id}>
-                <Link href={`/title/${a.mediaType}/${a.tmdbId}`} className="flex items-center gap-3 p-3 hover:bg-night-raised">
-                  {a.posterPath ? (
-                    <img src={imageUrl(a.posterPath, "w92")!} alt="" className="h-14 w-10 rounded object-cover" />
-                  ) : (
-                    <div className="h-14 w-10 rounded bg-night-raised" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className={a.readAt ? "text-paper-muted" : "font-medium"}>{a.message}</p>
-                    <p className="text-xs text-paper-faint">{a.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
-                  </div>
-                  {!a.readAt && <span className="h-2 w-2 shrink-0 rounded-full bg-flare" aria-label="new" />}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <AlertList alerts={unread.slice(0, HOME_ALERTS)} />
         </section>
       )}
 
