@@ -113,11 +113,15 @@ export async function fetchFeed(username: string) {
 
 // Brings in diary entries newer than the last sync. Entries already brought
 // in aren't applied again, so taking a film off Loved here sticks.
+// `inFeed` is how many diary entries the feed has at all: the feed only lists
+// films logged in the diary (with a "watched on" date), not ones just marked
+// as watched, so it can be empty for someone with plenty of films.
 export async function syncLetterboxd(user: { id: string; householdId: string; letterboxdUser: string | null; letterboxdSyncedAt: Date | null }) {
-  if (!user.letterboxdUser) return { watched: 0, loved: 0, want: 0 };
+  if (!user.letterboxdUser) return { watched: 0, loved: 0, want: 0, inFeed: 0 };
   const since = user.letterboxdSyncedAt?.getTime() ?? 0;
-  const entries = (await fetchFeed(user.letterboxdUser)).filter((e) => e.at.getTime() > since);
-  if (entries.length === 0) return { watched: 0, loved: 0, want: 0 };
+  const feed = await fetchFeed(user.letterboxdUser);
+  const entries = feed.filter((e) => e.at.getTime() > since);
+  if (entries.length === 0) return { watched: 0, loved: 0, want: 0, inFeed: feed.length };
 
   const posters = new Map(
     await mapLimit(Array.from(new Set(entries.map((e) => e.tmdbId))), 6, async (id): Promise<[number, string | null]> => {
@@ -137,7 +141,7 @@ export async function syncLetterboxd(user: { id: string; householdId: string; le
   const added = await applyFilmLog(user, Array.from(films.values()));
   const newest = new Date(Math.max(...entries.map((e) => e.at.getTime())));
   await db.user.update({ where: { id: user.id }, data: { letterboxdSyncedAt: newest } });
-  return added;
+  return { ...added, inFeed: feed.length };
 }
 
 // For the daily check: every connected person (in one household, if given).

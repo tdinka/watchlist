@@ -76,7 +76,11 @@ export function LetterboxdImport({ username, syncedAt }: { username: string | nu
       return;
     }
     setName(data.username);
-    setFeedNote(`Connected. ${describe(data.added)}`);
+    setFeedNote(
+      data.added.inFeed === 0
+        ? `Connected, but there's nothing in your Letterboxd diary yet, so there's nothing to bring in. Only films you log with a “watched on” date appear (on Letterboxd: Review or log…, then tick “Watched on”). Films you just mark as seen won't come through; upload the export file above for those.`
+        : `Connected. ${describe(data.added)}`,
+    );
     router.refresh();
   }
 
@@ -146,8 +150,9 @@ export function LetterboxdImport({ username, syncedAt }: { username: string | nu
       <div className="card mt-4 p-5">
         <h2 className="text-lg font-bold">2. Keep it up to date</h2>
         <p className="mt-1 text-sm text-paper-muted">
-          With your Letterboxd username, the daily check brings in films you log on Letterboxd from now on (from your public activity, the
-          latest 50 or so).
+          With your Letterboxd username, the daily check brings in films you log in your Letterboxd diary (with a &ldquo;watched on&rdquo;
+          date) from your public activity, the latest 50 or so. Films only marked as seen, without a diary entry, don&apos;t show up there,
+          so upload a fresh export now and then for those.
         </p>
         <form onSubmit={connect} className="mt-3 flex flex-wrap gap-2">
           <input
