@@ -9,7 +9,7 @@ const schema = z.object({
   mediaType: z.enum(["tv", "movie"]),
   title: z.string().min(1).max(300),
   posterPath: z.string().max(200).nullable().optional(),
-  list: z.enum(["loved", "want"]).default("loved"),
+  list: z.enum(["loved", "want", "watched"]).default("loved"),
 });
 
 export async function POST(req: Request) {

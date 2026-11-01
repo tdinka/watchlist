@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ListName, Saved } from "@/lib/favorites";
 import type { MatchQuery, MatchResult } from "@/lib/matching";
 import { groupHistory, parseNetflixCsv, parsePastedList } from "@/lib/netflix";
 import { imageUrl } from "@/lib/tmdb";
+import { LetterboxdImport } from "./LetterboxdImport";
 
 const MAX_TITLES = 250;
 
-type Source = "netflix" | "list";
+type Source = "netflix" | "list" | "letterboxd";
 type Row = MatchResult & { pick: number; on: boolean }; // pick = which candidate; -1 = none fit
 
 function formatMonth(date: string | null | undefined) {
@@ -17,8 +18,12 @@ function formatMonth(date: string | null | undefined) {
   return new Date(date + "T12:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
-export function ImportClient() {
+export function ImportClient({ letterboxd }: { letterboxd: { username: string | null; syncedAt: string | null } }) {
   const [source, setSource] = useState<Source>("netflix");
+  // /import?source=letterboxd opens that tab (read directly: see CLAUDE.md on useSearchParams).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("source") === "letterboxd") setSource("letterboxd");
+  }, []);
   const [text, setText] = useState("");
   const [rows, setRows] = useState<Row[] | null>(null);
   const [saved, setSaved] = useState<Record<string, Saved>>({});
@@ -226,14 +231,16 @@ export function ImportClient() {
   return (
     <div className="mt-6">
       <div className="flex gap-2">
-        {(["netflix", "list"] as const).map((s) => (
+        {(["netflix", "letterboxd", "list"] as const).map((s) => (
           <button key={s} className={`chip ${source === s ? "chip-on" : ""}`} onClick={() => (setSource(s), setError(null))}>
-            {s === "netflix" ? "From Netflix" : "Type a list"}
+            {s === "netflix" ? "From Netflix" : s === "letterboxd" ? "From Letterboxd" : "Type a list"}
           </button>
         ))}
       </div>
 
-      {source === "netflix" ? (
+      {source === "letterboxd" ? (
+        <LetterboxdImport username={letterboxd.username} syncedAt={letterboxd.syncedAt} />
+      ) : source === "netflix" ? (
         <div className="card mt-4 p-5">
           <h2 className="text-lg font-bold">Your Netflix viewing history</h2>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-paper-muted">

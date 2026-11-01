@@ -6,6 +6,7 @@ import type { ListName, Saved } from "@/lib/favorites";
 
 const HEART = "M12 20s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.5-7 10-7 10z";
 const BOOKMARK = "M6 3h12v18l-6-4-6 4z";
+const CHECK = "M5 12.5l4.5 4.5L19 7.5";
 
 function Icon({ d, filled }: { d: string; filled: boolean }) {
   return (
@@ -15,8 +16,9 @@ function Icon({ d, filled }: { d: string; filled: boolean }) {
   );
 }
 
-// "Want to watch" and "Loved it" are independent switches: each one puts the
-// title on, or takes it off, its own list.
+// "Want to watch", "Loved it" and "Watched" each put the title on, or take it
+// off, their own list. Marking it Watched also takes it off Want to watch.
+// Posters only get the first two, to keep them uncluttered.
 export function SaveButtons({
   tmdbId,
   mediaType,
@@ -33,13 +35,14 @@ export function SaveButtons({
   variant?: "buttons" | "icons";
 }) {
   const router = useRouter();
-  const [saved, setSaved] = useState<Saved>(initial ?? { want: false, loved: false });
+  const [saved, setSaved] = useState<Saved>(initial ?? { want: false, loved: false, watched: false });
   const [busy, setBusy] = useState<ListName | null>(null);
 
   async function toggle(list: ListName) {
     const on = !saved[list];
     setBusy(list);
-    setSaved((s) => ({ ...s, [list]: on }));
+    const before = saved;
+    setSaved((s) => ({ ...s, [list]: on, ...(list === "watched" && on ? { want: false } : {}) }));
     const res = on
       ? await fetch("/api/favorites", {
           method: "POST",
@@ -47,7 +50,7 @@ export function SaveButtons({
           body: JSON.stringify({ tmdbId, mediaType, title, posterPath, list }),
         })
       : await fetch(`/api/favorites?type=${mediaType}&id=${tmdbId}&list=${list}`, { method: "DELETE" });
-    if (!res.ok) setSaved((s) => ({ ...s, [list]: !on }));
+    if (!res.ok) setSaved(before);
     setBusy(null);
     router.refresh();
   }
@@ -55,12 +58,13 @@ export function SaveButtons({
   const options = [
     { value: "want" as const, icon: BOOKMARK, on: "On Want to watch", off: "Want to watch", name: "Want to watch" },
     { value: "loved" as const, icon: HEART, on: "Loved it", off: "Loved it", name: "Loved" },
+    { value: "watched" as const, icon: CHECK, on: "Watched", off: "Watched it", name: "Watched" },
   ];
 
   if (variant === "icons") {
     return (
       <div className="flex flex-col gap-1">
-        {options.map((o) => (
+        {options.slice(0, 2).map((o) => (
           <button
             key={o.value}
             onClick={() => toggle(o.value)}

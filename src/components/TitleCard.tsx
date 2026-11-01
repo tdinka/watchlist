@@ -56,6 +56,7 @@ export function TitleCard({
           <span>{title.mediaType === "tv" ? "Series" : "Movie"}</span>
           {title.year && <span>· {title.year}</span>}
           {title.rating && <span>· ★ {title.rating}</span>}
+          {saved?.watched && <span className="text-paper-muted">· ✓ Watched</span>}
         </div>
         {services && services.length > 0 && <ServiceLogos services={services} className="mt-1.5" />}
         {leaving && (

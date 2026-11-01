@@ -24,6 +24,11 @@ const TABS: { value: ListName; label: string; hint: string }[] = [
     label: "Loved",
     hint: "Titles you've watched and liked. Recommendations are based on these, and you'll hear about new seasons.",
   },
+  {
+    value: "watched",
+    label: "Watched",
+    hint: "Everything you've seen, including films from Letterboxd. These are kept out of your recommendations and don't send alerts.",
+  },
 ];
 
 export default async function MyListsPage({ searchParams }: { searchParams: { list?: string; type?: string } }) {
@@ -60,7 +65,7 @@ export default async function MyListsPage({ searchParams }: { searchParams: { li
         </Link>
       </div>
 
-      <div className="mt-4 grid max-w-md grid-cols-2 gap-1 rounded-full border border-night-line p-1">
+      <div className="mt-4 grid max-w-lg grid-cols-3 gap-1 rounded-full border border-night-line p-1">
         {TABS.map((t) => (
           <Link
             key={t.value}
@@ -130,6 +135,14 @@ export default async function MyListsPage({ searchParams }: { searchParams: { li
                 type a list
               </Link>
               .
+            </>
+          ) : list === "watched" ? (
+            <>
+              Nothing here yet.{" "}
+              <Link href="/import?source=letterboxd" className="text-marquee underline">
+                Bring in your Letterboxd films
+              </Link>
+              , or tap &ldquo;Watched it&rdquo; on any title&apos;s page.
             </>
           ) : (
             <>

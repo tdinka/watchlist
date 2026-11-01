@@ -10,7 +10,7 @@ import type { MatchQuery } from "@/lib/matching";
 const MARKER = /^(season|series|part|volume|vol\.?|chapter|book|collection|limited series|miniseries|episode|staffel|temporada|saison)\b/i;
 
 // Splits one CSV line, allowing quoted fields with commas and "" inside.
-function splitCsvLine(line: string): string[] {
+export function splitCsvLine(line: string): string[] {
   const out: string[] = [];
   let field = "";
   let quoted = false;

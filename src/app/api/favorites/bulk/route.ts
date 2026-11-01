@@ -17,7 +17,7 @@ const schema = z.object({
     )
     .min(1)
     .max(300),
-  list: z.enum(["loved", "want"]).default("loved"),
+  list: z.enum(["loved", "want", "watched"]).default("loved"),
 });
 
 // Adds many favorites at once (Import page and the pick-what-you-love screen).

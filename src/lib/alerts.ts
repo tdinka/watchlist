@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { emailConfigured, emailLayout, escapeHtml, sendEmail, appUrl } from "@/lib/email";
+import { ALERT_LISTS } from "@/lib/favorites";
 import { automaticLevel, isAlertLevel, type AlertLevel } from "@/lib/alert-levels";
 import { daysLeft, formatLeavesOn, refreshLeaving } from "@/lib/leaving";
+import { syncAllLetterboxd } from "@/lib/letterboxd";
 import { getHouseholdServices, matchServices, serviceKey } from "@/lib/services";
 import { getAvailability, imageUrl, mapLimit, tmdb, type MediaType, type Provider } from "@/lib/tmdb";
 
@@ -98,6 +100,13 @@ async function recordEpisodeNews(
 // leave the only one of the household's services it's on. It records an
 // alert for each person who saved it, then emails them.
 export async function runChecks(opts: { householdId?: string } = {}) {
+  // New films logged on Letterboxd first, so they're on the lists below.
+  let letterboxd: Awaited<ReturnType<typeof syncAllLetterboxd>>;
+  try {
+    letterboxd = await syncAllLetterboxd(opts.householdId);
+  } catch (err) {
+    letterboxd = { people: 0, films: 0, errors: [`Letterboxd: ${(err as Error).message}`] };
+  }
   let leaving: Awaited<ReturnType<typeof refreshLeaving>>;
   try {
     leaving = await refreshLeaving();
@@ -108,7 +117,7 @@ export async function runChecks(opts: { householdId?: string } = {}) {
   const leavingRows = await db.leaving.findMany({ where: { leavesOn: { gte: new Date().toISOString().slice(0, 10), lte: leavingSoon } } });
 
   const favorites = await db.favorite.findMany({
-    where: opts.householdId ? { user: { householdId: opts.householdId } } : {},
+    where: { list: { in: ALERT_LISTS }, ...(opts.householdId ? { user: { householdId: opts.householdId } } : {}) },
     include: { user: { select: { householdId: true } } },
   });
 
@@ -245,7 +254,8 @@ export async function runChecks(opts: { householdId?: string } = {}) {
     emailsSent: email.sent,
     emailNote: email.note,
     leaving: { lookups: leaving.pages, titles: leaving.titles, note: leaving.note },
-    errors,
+    letterboxd: { people: letterboxd.people, films: letterboxd.films },
+    errors: [...letterboxd.errors, ...errors],
   };
 }
 

@@ -25,14 +25,18 @@ model Household {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id                 String    @id @default(cuid())
+  email              String    @unique
   // No longer used: sign-in is by a code emailed to `email`. Kept (optional)
   // because dropping a column with data in it would stop `prisma db push`.
-  passwordHash String?
-  name         String
-  emailAlerts  Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  passwordHash       String?
+  name               String
+  emailAlerts        Boolean   @default(true)
+  // Letterboxd username whose public activity feed the daily check reads,
+  // and the time of the newest entry already brought in.
+  letterboxdUser     String?
+  letterboxdSyncedAt DateTime?
+  createdAt          DateTime  @default(now())
 
   household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   householdId String

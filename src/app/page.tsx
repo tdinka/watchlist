@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { favoriteKeys } from "@/lib/favorites";
+import { ALERT_LISTS, favoriteKeys } from "@/lib/favorites";
 import { leavingFor } from "@/lib/leaving";
 import { getHouseholdServices } from "@/lib/services";
 import { discover, hasTmdbKey, type Provider, type TitleSummary } from "@/lib/tmdb";
@@ -43,7 +43,7 @@ export default async function HomePage() {
     db.alert.findMany({ where: { userId: user.id, readAt: null }, orderBy: { createdAt: "desc" } }),
     getHouseholdServices(user.householdId),
     favoriteKeys(user.id),
-    db.favorite.findMany({ where: { userId: user.id, mediaType: "tv" }, orderBy: { createdAt: "desc" } }),
+    db.favorite.findMany({ where: { userId: user.id, mediaType: "tv", list: { in: ALERT_LISTS } }, orderBy: { createdAt: "desc" } }),
     // Want-to-watch titles that are on one of the household's services now.
     db.favorite.findMany({
       where: { userId: user.id, list: "want", AND: [{ availableOn: { not: null } }, { availableOn: { not: "" } }] },
